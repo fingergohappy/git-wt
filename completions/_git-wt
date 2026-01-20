@@ -1,0 +1,107 @@
+#compdef git-wt
+
+# Completion for git-wt.
+# Completion must never exceed command semantics (projects.md).
+
+_git-wt() {
+  emulate -L zsh
+  setopt localoptions noshwordsplit
+
+  local -a commands
+  commands=(
+    'create:create new worktree + branch'
+    'switch:switch to feature worktree'
+    'enter:alias of switch'
+    'root:cd back to project root'
+    'remove:remove feature worktree'
+    'list:list all feature worktrees'
+    'status:show current context status'
+    'merge:merge feature branch into root'
+    'rebase:rebase root onto feature'
+    'a:open feature with AI agent'
+    'e:open feature with editor'
+    'ca:create and open with AI'
+    'cs:create and switch'
+    'ce:create and open with editor'
+    'config:configure ai/editor/work-tree-name'
+    'init:initialize project and worktree root'
+  )
+
+  _git_wt__project_root() {
+    emulate -L zsh
+
+    command git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 1
+
+    local toplevel common
+    toplevel=$(command git rev-parse --path-format=absolute --show-toplevel 2>/dev/null \
+      || command git rev-parse --show-toplevel 2>/dev/null) || return 1
+
+    common=$(command git rev-parse --path-format=absolute --git-common-dir 2>/dev/null \
+      || command git rev-parse --git-common-dir 2>/dev/null) || return 1
+
+    if [[ $common != /* ]]; then
+      common="$toplevel/$common"
+    fi
+
+    if [[ ${common:t} == ".git" ]]; then
+      print -r -- "${common:h}"
+      return 0
+    fi
+
+    print -r -- "$toplevel"
+  }
+
+  _git_wt__features() {
+    emulate -L zsh
+
+    local project_root
+    project_root=$(_git_wt__project_root) || return 0
+
+    local -a out
+    local line
+    while IFS= read -r line; do
+      if [[ $line == worktree\ * ]]; then
+        local path=${line#worktree }
+        if [[ $path == $project_root ]]; then
+          continue
+        fi
+        local name=${path:t}
+        if [[ $name == "." || $name == "current" || $name == ".." ]]; then
+          continue
+        fi
+        out+=("$name")
+      fi
+    done < <(command git -C "$project_root" worktree list --porcelain 2>/dev/null)
+
+    out=(${(u)out})
+    print -rl -- $out
+  }
+
+  local context state line
+  _arguments -C \
+    '1:command:->cmds' \
+    '*::arg:->args'
+
+  case $state in
+    (cmds)
+      _describe -t commands 'git-wt command' commands
+      ;;
+    (args)
+      case ${words[2]-} in
+        (switch|enter|remove|a|e|merge|rebase)
+          local -a features
+          features=(${(f)$(_git_wt__features)})
+          _values 'feature' $features
+          ;;
+        (config)
+          _values 'key' ai editor work-tree-name
+          ;;
+        (*)
+          return 0
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_git-wt "$@"

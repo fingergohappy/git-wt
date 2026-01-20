@@ -1,0 +1,28 @@
+#autoload
+
+# git-wt shell function entrypoint.
+# This must be a function (not a script) to support `cd`.
+
+git-wt() {
+  emulate -L zsh
+  setopt localoptions
+
+  # Ensure core modules are loaded even if the plugin entrypoint wasn't sourced.
+  if (( ! ${+__GIT_WT_BOOTSTRAP_LOADED} )); then
+    local trace=${funcfiletrace[1]-}
+    local func_file=${trace%:*}
+    if [[ -n $func_file ]]; then
+      local root_dir=${func_file:A:h:h}
+      if [[ -f $root_dir/lib/git-wt/bootstrap.zsh ]]; then
+        source "$root_dir/lib/git-wt/bootstrap.zsh" || return 1
+      fi
+    fi
+  fi
+
+  if (( ! ${+functions[git_wt::main]} )); then
+    git_wt::die "internal error: git_wt::main not loaded"
+    return 1
+  fi
+
+  git_wt::main "$@"
+}

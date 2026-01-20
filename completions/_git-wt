@@ -27,6 +27,10 @@ _git-wt() {
     'init:initialize project and worktree root'
   )
 
+  # Extract command names for prefix completion
+  local -a cmd_names
+  cmd_names=(create switch enter root remove list status merge rebase a e ca cs ce config init)
+
   _git_wt__project_root() {
     emulate -L zsh
 
@@ -84,7 +88,14 @@ _git-wt() {
 
   case $state in
     (cmds)
-      _describe -t commands 'git-wt command' commands
+      # Use both _values and _describe to ensure prefix matching works
+      if [[ -n $PREFIX ]]; then
+        # Prefix completion: use _values for simple matching
+        _values 'git-wt command' $cmd_names
+      else
+        # No prefix: use _describe to show descriptions
+        _describe -t commands 'git-wt command' commands
+      fi
       ;;
     (args)
       case ${words[2]-} in

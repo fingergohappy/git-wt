@@ -1,8 +1,5 @@
 # Utilities and error handling.
 
-emulate -L zsh
-setopt localoptions
-
 typeset -g __GIT_WT_UTIL_LOADED=1
 
 git_wt::err() {

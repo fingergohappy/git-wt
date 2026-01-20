@@ -1,8 +1,5 @@
 # Command dispatcher and command implementations.
 
-emulate -L zsh
-setopt localoptions
-
 typeset -g __GIT_WT_COMMANDS_LOADED=1
 
 # ---- configuration (session-only variables) ----
@@ -42,16 +39,16 @@ git_wt::cmd::open_with() {
     git_wt::die "${kind} command not configured (use: git-wt config ${kind} <command...>)"
   fi
 
-  local path
-  path=$(git_wt::git::feature_path "$feature") || return 1
+  local feature_path
+  feature_path=$(git_wt::git::feature_path "$feature") || return 1
 
-  if [[ ! -d $path ]]; then
+  if [[ ! -d $feature_path ]]; then
     git_wt::die "feature worktree not found: ${feature}"
   fi
 
   local -a cmd
   cmd=(${(z)cmd_str})
-  command $cmd "$path"
+  command $cmd "$feature_path"
 }
 
 # ---- commands ----
@@ -131,27 +128,37 @@ git_wt::cmd::init() {
 }
 
 git_wt::cmd::create() {
-  emulate -L zsh
+  # emulate -L zsh
 
   local feature=$1
   git_wt::cmd::require_feature_name "$feature" || return 1
-  git_wt::git::ensure_in_project_root || return 1
 
+  # Check if we're in a Git repository first
+  if ! git_wt::git::is_inside_repo; then
+    git_wt::die "command create: not inside a Git repository"
+  fi
+
+  # Try to get worktree root, check if it exists
   local wt_root
-  wt_root=$(git_wt::git::worktree_root) || return 1
+  if ! wt_root=$(git_wt::git::worktree_root 2>/dev/null); then
+    git_wt::die "project not initialized (run: git-wt init <project-name> from parent directory)"
+  fi
 
   if [[ ! -d $wt_root ]]; then
-    git_wt::die "worktree root does not exist: ${wt_root} (run: git-wt init <project-name>)"
+    git_wt::die "worktree root does not exist: ${wt_root} (run: git-wt init <project-name> from parent directory)"
   fi
 
-  local path
-  path=$(git_wt::git::feature_path "$feature") || return 1
+  # Ensure we're in the project root, not a feature worktree
+  git_wt::git::ensure_in_project_root || return 1
 
-  if [[ -e $path ]]; then
-    git_wt::die "target path already exists: ${path}"
+  local feature_path
+  feature_path=$(git_wt::git::feature_path "$feature") || return 1
+
+  if [[ -e $feature_path ]]; then
+    git_wt::die "target path already exists: ${feature_path}"
   fi
 
-  command git worktree add "$path" -b "$feature"
+  command git worktree add "$feature_path" -b "$feature"
 }
 
 git_wt::cmd::switch() {
@@ -160,14 +167,14 @@ git_wt::cmd::switch() {
   local feature=$1
   git_wt::cmd::require_feature_name "$feature" || return 1
 
-  local path
-  path=$(git_wt::git::feature_path "$feature") || return 1
+  local feature_path
+  feature_path=$(git_wt::git::feature_path "$feature") || return 1
 
-  if [[ ! -d $path ]]; then
+  if [[ ! -d $feature_path ]]; then
     git_wt::die "feature worktree not found: ${feature}"
   fi
 
-  builtin cd -- "$path"
+  builtin cd -- "$feature_path"
 }
 
 git_wt::cmd::enter() {
@@ -194,34 +201,35 @@ git_wt::cmd::remove() {
   local project_root
   project_root=$(git_wt::git::project_root) || return 1
 
-  local path
-  path=$(git_wt::git::feature_path "$feature") || return 1
+  local feature_path
+  feature_path=$(git_wt::git::feature_path "$feature") || return 1
 
   local toplevel
   toplevel=$(git_wt::git::current_toplevel) || return 1
 
-  if [[ $toplevel == $path ]]; then
+  if [[ $toplevel == $feature_path ]]; then
     builtin cd -- "$project_root" || return 1
   fi
 
-  command git -C "$project_root" worktree remove "$path"
+  command git -C "$project_root" worktree remove "$feature_path"
 }
 
 git_wt::cmd::list() {
   emulate -L zsh
+  # setopt localoptions
 
   local project_root
   project_root=$(git_wt::git::project_root) || return 1
 
-  local path name status
-  for path in $(git_wt::git::worktree_paths); do
-    if [[ $path == $project_root ]]; then
+  local wt_path name wt_status
+  for wt_path in $(git_wt::git::worktree_paths); do
+    if [[ $wt_path == $project_root ]]; then
       continue
     fi
 
-    name=${path:t}
-    status=$(git_wt::git::worktree_status "$path") || return 1
-    print -r -- "${name}\t${status}"
+    name=${wt_path:t}
+    wt_status=$(git_wt::git::worktree_status "$wt_path") || return 1
+    printf '%s\t%s\n' "$name" "$wt_status"
   done
 }
 
@@ -250,14 +258,14 @@ git_wt::cmd::status() {
     return 0
   fi
 
-  local name status
+  local name wt_status
   name=${toplevel:t}
-  status=$(git_wt::git::worktree_status "$toplevel") || return 1
+  wt_status=$(git_wt::git::worktree_status "$toplevel") || return 1
 
   print -r -- "  type: feature"
   print -r -- "  name: ${name}"
   print -r -- "  path: ${toplevel}"
-  print -r -- "  status: ${status}"
+  print -r -- "  status: ${wt_status}"
 }
 
 git_wt::cmd::merge() {
@@ -324,7 +332,7 @@ git_wt::cmd::ce() {
 # ---- main entry ----
 
 git_wt::main() {
-  emulate -L zsh
+  # emulate -L zsh
 
   local cmd=${1-}
   if (( $# > 0 )); then

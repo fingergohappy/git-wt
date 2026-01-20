@@ -1,37 +1,53 @@
 # Git and worktree helpers.
 
-emulate -L zsh
-setopt localoptions
-
 typeset -g __GIT_WT_GIT_LOADED=1
 
 # ---- repo detection ----
 
+git_wt::git::rev_parse() {
+  # emulate -L zsh
+  # setopt localoptions
+
+  command git rev-parse "$@"
+}
+
 git_wt::git::is_inside_repo() {
-  emulate -L zsh
-  command git rev-parse --is-inside-work-tree >/dev/null 2>&1
+  # emulate -L zsh
+  # setopt localoptions
+
+  command git rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+    || command git rev-parse --git-dir >/dev/null 2>&1
 }
 
 git_wt::git::current_toplevel() {
-  emulate -L zsh
+  # emulate -L zsh
+  # setopt localoptions
 
-  command git rev-parse --path-format=absolute --show-toplevel 2>/dev/null \
-    || command git rev-parse --show-toplevel 2>/dev/null
+  local result
+  result=$(git_wt::git::rev_parse --path-format=absolute --show-toplevel 2>/dev/null \
+    || git_wt::git::rev_parse --show-toplevel 2>/dev/null)
+  local ret=$?
+  print -r -- "$result"
+  return $ret
 }
 
 git_wt::git::git_common_dir() {
-  emulate -L zsh
+  # emulate -L zsh
+  # setopt localoptions
 
-  command git rev-parse --path-format=absolute --git-common-dir 2>/dev/null \
-    || command git rev-parse --git-common-dir 2>/dev/null
+  git_wt::git::rev_parse --path-format=absolute --git-common-dir 2>/dev/null \
+    || git_wt::git::rev_parse --git-common-dir 2>/dev/null
 }
 
 git_wt::git::project_root() {
-  emulate -L zsh
+  # emulate -L zsh
+  # setopt localoptions
+
 
   if ! git_wt::git::is_inside_repo; then
-    git_wt::die "not inside a Git repository"
+    git_wt::die "project root: not inside a Git repository"
   fi
+
 
   local common_dir
   common_dir=$(git_wt::git::git_common_dir) || return 1
@@ -50,11 +66,14 @@ git_wt::git::project_root() {
   fi
 
   # Fall back to the current toplevel.
-  git_wt::git::current_toplevel
+  local result
+  result=$(git_wt::git::current_toplevel)
+  print -r -- "$result"
 }
 
 git_wt::git::project_name() {
-  emulate -L zsh
+  # emulate -L zsh
+  # setopt localoptions
 
   local root
   root=$(git_wt::git::project_root) || return 1
@@ -64,7 +83,8 @@ git_wt::git::project_name() {
 # ---- worktree layout ----
 
 git_wt::git::worktree_root_name() {
-  emulate -L zsh
+  # emulate -L zsh
+  # setopt localoptions
 
   if [[ -n ${GIT_WT_WORK_TREE_NAME-} ]]; then
     print -r -- "$GIT_WT_WORK_TREE_NAME"
@@ -77,7 +97,8 @@ git_wt::git::worktree_root_name() {
 }
 
 git_wt::git::worktree_root() {
-  emulate -L zsh
+  # emulate -L zsh
+  # setopt localoptions
 
   local project_root
   project_root=$(git_wt::git::project_root) || return 1
@@ -90,7 +111,8 @@ git_wt::git::worktree_root() {
 }
 
 git_wt::git::feature_path() {
-  emulate -L zsh
+  # emulate -L zsh
+  # setopt localoptions
 
   local feature=$1
   git_wt::require_arg feature "$feature" || return 1
@@ -102,7 +124,8 @@ git_wt::git::feature_path() {
 }
 
 git_wt::git::ensure_in_project_root() {
-  emulate -L zsh
+  # emulate -L zsh
+  # setopt localoptions
 
   local toplevel project_root
   toplevel=$(git_wt::git::current_toplevel) || return 1
@@ -111,10 +134,12 @@ git_wt::git::ensure_in_project_root() {
   if [[ $toplevel != $project_root ]]; then
     git_wt::die "invalid context: must run inside project root"
   fi
+
 }
 
 git_wt::git::ensure_in_feature_worktree() {
-  emulate -L zsh
+  # emulate -L zsh
+  # setopt localoptions
 
   local toplevel project_root
   toplevel=$(git_wt::git::current_toplevel) || return 1
@@ -128,35 +153,48 @@ git_wt::git::ensure_in_feature_worktree() {
 # ---- worktree inspection ----
 
 git_wt::git::worktree_paths() {
-  emulate -L zsh
+  # emulate -L zsh
+  # setopt localoptions
 
   local project_root
   project_root=$(git_wt::git::project_root) || return 1
 
+  # Get worktree list using git worktree list --porcelain
+  # Parse output synchronously to avoid delayed execution
   local -a paths
+  local porcelain
+  porcelain=$(command git -C "$project_root" worktree list --porcelain 2>/dev/null) || return 0
+
+  local -a lines
+  lines=("${(@f)porcelain}")
+
   local line
-  while IFS= read -r line; do
+  for line in "${lines[@]}"; do
     if [[ $line == worktree\ * ]]; then
       paths+=("${line#worktree }")
     fi
-  done < <(command git -C "$project_root" worktree list --porcelain 2>/dev/null)
+  done
 
-  print -rl -- $paths
+  # Only print paths if we have them (suppress output in cleanup contexts)
+  if [[ -n $paths ]]; then
+    print -rl -- $paths
+  fi
 }
 
 git_wt::git::feature_names() {
-  emulate -L zsh
+  # emulate -L zsh
+  # setopt localoptions
 
   local project_root
   project_root=$(git_wt::git::project_root) || return 1
 
   local -a features
-  local path
-  for path in $(git_wt::git::worktree_paths); do
-    if [[ $path == $project_root ]]; then
+  local wt_path
+  for wt_path in $(git_wt::git::worktree_paths); do
+    if [[ $wt_path == $project_root ]]; then
       continue
     fi
-    features+=("${path:t}")
+    features+=("${wt_path:t}")
   done
 
   # Unique + stable order.
@@ -166,13 +204,14 @@ git_wt::git::feature_names() {
 }
 
 git_wt::git::worktree_status() {
-  emulate -L zsh
+  # emulate -L zsh
+  # setopt localoptions
 
-  local path=$1
-  git_wt::require_arg path "$path" || return 1
+  local wt_path=$1
+  git_wt::require_arg path "$wt_path" || return 1
 
   local porcelain
-  porcelain=$(command git -C "$path" status --porcelain 2>/dev/null) || return 1
+  porcelain=$(command git -C "$wt_path" status --porcelain 2>/dev/null) || return 1
 
   if [[ -z $porcelain ]]; then
     print -r -- clean

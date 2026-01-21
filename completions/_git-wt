@@ -7,6 +7,10 @@ _git-wt() {
   emulate -L zsh
   setopt localoptions noshwordsplit
 
+  # Define AI providers (must match bootstrap.zsh)
+  local -a GIT_WT_AI_PROVIDERS
+  GIT_WT_AI_PROVIDERS=(claude cursorcli opencode codex)
+
   local -a commands
   commands=(
     'create:create new worktree + branch'

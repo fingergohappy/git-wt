@@ -57,7 +57,37 @@ _git-wt() {
 
   _git_wt__ai_providers() {
     emulate -L zsh
-    print -rl -- claude cursorcli opencode codex
+    print -rl -- claude:AI cursorcli:AI opencode:AI codex:AI
+  }
+
+  _git_wt__ai_providers_comp() {
+    emulate -L zsh
+    setopt localoptions noshwordsplit
+
+    local -a providers
+    local line
+    for line in ${(@f)$(_git_wt__ai_providers)}; do
+      providers+=("${line%%:*}:${line#*:}")
+    done
+
+    if (( $#providers )); then
+      _describe 'AI provider' providers
+    fi
+  }
+
+  _git_wt__features_comp() {
+    emulate -L zsh
+    setopt localoptions noshwordsplit
+
+    local -a features
+    local line
+    for line in ${(@f)$(_git_wt__features)}; do
+      features+=("${line%%:*}:${line#*:}")
+    done
+
+    if (( $#features )); then
+      _describe 'feature worktree' features
+    fi
   }
 
   _git_wt__is_ai_provider() {
@@ -73,20 +103,26 @@ _git-wt() {
     project_root=$(_git_wt__project_root) || return 0
 
     local -a out
-    local line
-    while IFS= read -r line; do
+    local porcelain
+    porcelain=$(command git -C "$project_root" worktree list --porcelain 2>/dev/null) || return 0
+
+    local -a lines
+    lines=("${(@f)porcelain}")
+
+    local line path name
+    for line in "${lines[@]}"; do
       if [[ $line == worktree\ * ]]; then
-        local path=${line#worktree }
+        path=${line#worktree }
         if [[ $path == $project_root ]]; then
           continue
         fi
-        local name=${path:t}
+        name=${path:t}
         if [[ $name == "." || $name == "current" || $name == ".." ]]; then
           continue
         fi
-        out+=("$name")
+        out+=("${name}:feature")
       fi
-    done < <(command git -C "$project_root" worktree list --porcelain 2>/dev/null)
+    done
 
     out=(${(u)out})
     print -rl -- $out
@@ -95,36 +131,24 @@ _git-wt() {
   local context state state_desc line
   _arguments -C \
     '1:command:->cmds' \
-    '2:: :->args1' \
+    '2: :->args1' \
     '*::arg:->args_rest'
 
   case $state in
     (cmds)
-      # Use both _values and _describe to ensure prefix matching works
-      if [[ -n $PREFIX ]]; then
-        # Prefix completion: use _values for simple matching
-        _values 'git-wt command' $cmd_names
-      else
-        # No prefix: use _describe to show descriptions
-        _describe -t commands 'git-wt command' commands
-      fi
+      # Always use _describe to show descriptions with prefix matching
+      _describe -t commands 'git-wt command' commands
       ;;
     (args1)
       case ${words[2]-} in
         (a)
-          # For 'a' command, complete AI providers first, then features
-          local -a ai_providers
-          ai_providers=(${(f)$(_git_wt__ai_providers)})
-          local -a features
-          features=(${(f)$(_git_wt__features)})
+          # For 'a' command, complete AI providers and features
           _alternative \
-            'ai-providers:AI provider:_values "AI provider" $ai_providers' \
-            'features:feature:_values "feature" $features'
+            'ai-providers:AI provider:_git_wt__ai_providers_comp' \
+            'features:feature worktree:_git_wt__features_comp'
           ;;
         (switch|enter|remove|e|merge|rebase)
-          local -a features
-          features=(${(f)$(_git_wt__features)})
-          _values 'feature' $features
+          _git_wt__features_comp
           ;;
         (config)
           _values 'key' ai editor work-tree-name
@@ -144,9 +168,7 @@ _git-wt() {
         (a)
           # If second arg was an AI provider, complete features
           if _git_wt__is_ai_provider ${words[3]-}; then
-            local -a features
-            features=(${(f)$(_git_wt__features)})
-            _values 'feature' $features
+            _git_wt__features_comp
           fi
           ;;
         (*)

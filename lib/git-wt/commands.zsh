@@ -510,7 +510,9 @@ git_wt::main() {
     (enter) git_wt::cmd::enter "$@" ;;
     (root) git_wt::cmd::root "$@" ;;
     (remove) git_wt::cmd::remove "$@" ;;
+    (rm) git_wt::cmd::remove "$@" ;;
     (list) git_wt::cmd::list "$@" ;;
+    (ls) git_wt::cmd::list "$@" ;;
     (status) git_wt::cmd::status "$@" ;;
     (merge) git_wt::cmd::merge "$@" ;;
     (rebase) git_wt::cmd::rebase "$@" ;;

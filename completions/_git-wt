@@ -9,27 +9,29 @@ _git-wt() {
 
   local -a commands
   commands=(
-    'create:Create a new feature worktree with a branch'
-    'switch:Switch to an existing feature worktree (change directory)'
-    'enter:Alias for switch command'
-    'root:Return to the project root from a feature worktree'
-    'remove:Remove a feature worktree and its files'
-    'list:List all feature worktrees with their status'
-    'status:Show current context and project information'
-    'merge:Merge a feature branch into the root branch'
-    'rebase:Rebase the root branch onto a feature branch'
-    'a:Open feature worktree with AI agent (optional provider)'
-    'e:Open feature worktree with configured editor'
-    'ca:Create worktree and open with AI agent'
-    'cs:Create worktree and switch to it'
-    'ce:Create worktree and open with editor'
-    'config:Configure AI provider, editor, or worktree name'
-    'init:Initialize project and worktree root (auto-detects repos)'
+    'create:create new worktree + branch'
+    'switch:switch to feature worktree'
+    'enter:alias of switch'
+    'root:cd back to project root'
+    'remove:remove feature worktree'
+    'rm:alias of remove'
+    'list:list all feature worktrees'
+    'ls:alias of list'
+    'status:show current context status'
+    'merge:merge feature branch into root'
+    'rebase:rebase root onto feature'
+    'a:open feature with AI agent'
+    'e:open feature with editor'
+    'ca:create and open with AI'
+    'cs:create and switch'
+    'ce:create and open with editor'
+    'config:configure ai/editor/work-tree-name'
+    'init:initialize project and worktree root (optional: auto-detect repos)'
   )
 
   # Extract command names automatically from commands array
   local -a cmd_names
-  cmd_names=(${commands%%:*})
+  cmd_names=(create switch enter root remove rm list ls status merge rebase a e ca cs ce config init)
 
   _git_wt__project_root() {
     emulate -L zsh
@@ -155,8 +157,10 @@ _git-wt() {
             'ai-providers:AI provider:_git_wt__ai_providers_comp' \
             'features:feature worktree:_git_wt__features_comp'
           ;;
-        (switch|enter|remove|e|merge|rebase)
-          _git_wt__features_comp
+        (switch|enter|remove|rm|e|merge|rebase)
+          local -a features
+          features=(${(f)$(_git_wt__features)})
+          _values 'feature' $features
           ;;
         (config)
           _values 'key' ai editor work-tree-name

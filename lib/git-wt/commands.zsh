@@ -316,10 +316,13 @@ git_wt::cmd::list() {
   emulate -L zsh
   setopt localoptions
 
+  # Ensure machine-parsable output even if caller has xtrace enabled.
+  unsetopt xtrace verbose
+
   local project_root
   project_root=$(git_wt::git::project_root) || return 1
 
-  local wt_path name wt_status
+  local wt_path name wt_status emoji
   for wt_path in $(git_wt::git::worktree_paths); do
     if [[ $wt_path == $project_root ]]; then
       continue
@@ -327,7 +330,16 @@ git_wt::cmd::list() {
 
     name=${wt_path:t}
     wt_status=$(git_wt::git::worktree_status "$wt_path") || return 1
-    printf '%s\t%s\n' "$name" "$wt_status"
+
+    case $wt_status in
+      (clean) emoji='✅' ;;
+      (uncommitted) emoji='📝' ;;
+      (unmerged) emoji='⚠️' ;;
+      (*) emoji='❓' ;;
+    esac
+
+    # Keep the first two columns stable: name + status.
+    printf '%s\t%s\t%s\n' "$name" "$wt_status" "$emoji"
   done
 }
 
@@ -401,12 +413,10 @@ git_wt::cmd::a() {
     shift
     provider=${1-}
     shift || true
-  # Check for backward compatibility: positional provider (deprecated)
-  elif [[ ${1} = (${(j:|:)GIT_WT_AI_PROVIDERS}) ]]; then
-    provider=$1
-    shift
-    # Emit deprecation warning
-    git_wt::err "git-wt: warning: Using positional AI provider is deprecated. Use: git-wt a --ai $provider <feature>"
+
+    if [[ -z $provider ]]; then
+      git_wt::die "missing required argument: --ai <provider>"
+    fi
   fi
 
   # Get feature name (first positional argument after flags)
@@ -423,7 +433,7 @@ git_wt::cmd::a() {
   feature_path=$(git_wt::git::feature_path "$feature") || return 1
 
   if [[ -n $provider ]]; then
-    # Explicit provider via --ai flag or deprecated positional syntax
+    # Explicit provider via --ai flag
     git_wt::ai::open "$provider" "$feature_path" "$@"
     return $?
   fi
@@ -468,10 +478,10 @@ git_wt::cmd::ca() {
     shift
     provider=${1-}
     shift || true
-  # Check for backward compatibility: positional provider (deprecated)
-  elif [[ ${1} = (${(j:|:)GIT_WT_AI_PROVIDERS}) ]]; then
-    provider=$1
-    shift
+
+    if [[ -z $provider ]]; then
+      git_wt::die "missing required argument: --ai <provider>"
+    fi
   fi
 
   # Get feature name (first positional argument after flags)

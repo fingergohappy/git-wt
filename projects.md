@@ -226,9 +226,9 @@ Open the feature worktree using the configured editor.
 
 Lists all worktrees with status:
 
-feature-a   clean
-feature-b   uncommitted
-feature-c   unmerged
+feature-a   clean        ✅
+feature-b   uncommitted  📝
+feature-c   unmerged     ⚠️
 
 Status is derived from `git status --porcelain` for each worktree and is used to decide whether a feature is clean enough to merge or rebase into root.
 

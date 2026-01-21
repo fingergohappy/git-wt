@@ -4,8 +4,8 @@
 # This must be a function (not a script) to support `cd`.
 
 git-wt() {
-  # emulate -L zsh
-  # setopt localoptions
+  emulate -L zsh
+  setopt localoptions
 
   # Ensure core modules are loaded even if the plugin entrypoint wasn't sourced.
   if (( ! ${+__GIT_WT_BOOTSTRAP_LOADED} )); then

@@ -27,6 +27,7 @@ git_wt::cmd::require_feature_name() {
 
 git_wt::cmd::open_with() {
   emulate -L zsh
+  setopt localoptions
 
   local kind=$1
   local cmd_str=$2
@@ -46,9 +47,15 @@ git_wt::cmd::open_with() {
     git_wt::die "feature worktree not found: ${feature}"
   fi
 
+  # Parse command string and verify command exists
   local -a cmd
   cmd=(${(z)cmd_str})
-  command $cmd "$feature_path"
+
+  if ! (( ${+commands[$cmd[1]]} )); then
+    git_wt::die "${kind} command not found: ${cmd[1]}"
+  fi
+
+  command "${cmd[@]}" "$feature_path"
 }
 
 # ---- commands ----
@@ -184,6 +191,10 @@ git_wt::cmd::init() {
     fi
   fi
 
+  # Determine parent directory for worktree root:
+  # - If argument was provided: use parent of project_dir (standard case)
+  # - If PWD == project_dir: we're inside the repo, use its parent
+  # - Otherwise: we're outside (found via search), use current directory
   local parent_dir
   if (( arg_provided )); then
     # Argument provided: use parent of project directory
@@ -214,7 +225,8 @@ git_wt::cmd::init() {
 }
 
 git_wt::cmd::create() {
-  # emulate -L zsh
+  emulate -L zsh
+  setopt localoptions
 
   local feature=$1
   git_wt::cmd::require_feature_name "$feature" || return 1
@@ -302,7 +314,7 @@ git_wt::cmd::remove() {
 
 git_wt::cmd::list() {
   emulate -L zsh
-  # setopt localoptions
+  setopt localoptions
 
   local project_root
   project_root=$(git_wt::git::project_root) || return 1
@@ -390,7 +402,7 @@ git_wt::cmd::a() {
 
   # Check if first argument is a known AI provider
   case $first_arg in
-    (claude|cursorcli|opencode|codex)
+    (${(j:|:)GIT_WT_AI_PROVIDERS})
       # Explicit AI: git-wt a claude my-feature
       local provider=$first_arg
       local feature=${1-}
@@ -410,13 +422,12 @@ git_wt::cmd::a() {
       git_wt::cmd::require_feature_name "$feature" || return 1
 
       if [[ -z ${GIT_WT_AI_CMD-} ]]; then
+        local providers_list=${(j:, :)GIT_WT_AI_PROVIDERS}
+        local providers_examples
+        providers_examples=$(printf '  git-wt a %s ${feature}\n' "${GIT_WT_AI_PROVIDERS[@]}")
         git_wt::die "AI command not configured
 hint: Use one of:
-  git-wt a claude ${feature}
-  git-wt a cursorcli ${feature}
-  git-wt a opencode ${feature}
-  git-wt a codex ${feature}
-hint: Or set a default:
+${providers_examples}hint: Or set a default:
   git-wt config ai <command>"
       fi
 
@@ -448,7 +459,7 @@ git_wt::cmd::ca() {
 
   # Check if first argument is a known AI provider
   case $first_arg in
-    (claude|cursorcli|opencode|codex)
+    (${(j:|:)GIT_WT_AI_PROVIDERS})
       # git-wt ca claude my-feature [--args]
       provider=$first_arg
       feature=${2-}
@@ -465,7 +476,7 @@ git_wt::cmd::ca() {
   git_wt::cmd::create "$feature" || return 1
 
   # Open with AI (pass through original arguments)
-  git_wt::cmd::a "$orig_args[@]"
+  git_wt::cmd::a "${orig_args[@]}"
 }
 
 git_wt::cmd::cs() {
@@ -485,7 +496,8 @@ git_wt::cmd::ce() {
 # ---- main entry ----
 
 git_wt::main() {
-  # emulate -L zsh
+  emulate -L zsh
+  setopt localoptions
 
   local cmd=${1-}
   if (( $# > 0 )); then

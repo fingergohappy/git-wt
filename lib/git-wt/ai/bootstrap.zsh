@@ -25,6 +25,3 @@ done
 
 # Load provider registry
 source "$ai_dir/providers.zsh"
-
-# Export list of available providers
-typeset -ga GIT_WT_AI_PROVIDERS=(claude cursorcli opencode codex)

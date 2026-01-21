@@ -9,27 +9,27 @@ _git-wt() {
 
   local -a commands
   commands=(
-    'create:create new worktree + branch'
-    'switch:switch to feature worktree'
-    'enter:alias of switch'
-    'root:cd back to project root'
-    'remove:remove feature worktree'
-    'list:list all feature worktrees'
-    'status:show current context status'
-    'merge:merge feature branch into root'
-    'rebase:rebase root onto feature'
-    'a:open feature with AI agent'
-    'e:open feature with editor'
-    'ca:create and open with AI'
-    'cs:create and switch'
-    'ce:create and open with editor'
-    'config:configure ai/editor/work-tree-name'
-    'init:initialize project and worktree root (optional: auto-detect repos)'
+    'create:Create a new feature worktree with a branch'
+    'switch:Switch to an existing feature worktree (change directory)'
+    'enter:Alias for switch command'
+    'root:Return to the project root from a feature worktree'
+    'remove:Remove a feature worktree and its files'
+    'list:List all feature worktrees with their status'
+    'status:Show current context and project information'
+    'merge:Merge a feature branch into the root branch'
+    'rebase:Rebase the root branch onto a feature branch'
+    'a:Open feature worktree with AI agent (optional provider)'
+    'e:Open feature worktree with configured editor'
+    'ca:Create worktree and open with AI agent'
+    'cs:Create worktree and switch to it'
+    'ce:Create worktree and open with editor'
+    'config:Configure AI provider, editor, or worktree name'
+    'init:Initialize project and worktree root (auto-detects repos)'
   )
 
-  # Extract command names for prefix completion
+  # Extract command names automatically from commands array
   local -a cmd_names
-  cmd_names=(create switch enter root remove list status merge rebase a e ca cs ce config init)
+  cmd_names=(${commands%%:*})
 
   _git_wt__project_root() {
     emulate -L zsh
@@ -57,7 +57,11 @@ _git-wt() {
 
   _git_wt__ai_providers() {
     emulate -L zsh
-    print -rl -- claude:AI cursorcli:AI opencode:AI codex:AI
+    # Use shared AI providers array from bootstrap
+    local provider
+    for provider in "${GIT_WT_AI_PROVIDERS[@]}"; do
+      print -r -- "${provider}:AI provider"
+    done
   }
 
   _git_wt__ai_providers_comp() {
@@ -93,16 +97,19 @@ _git-wt() {
   _git_wt__is_ai_provider() {
     emulate -L zsh
     local provider=$1
-    [[ $provider == claude || $provider == cursorcli || $provider == opencode || $provider == codex ]]
+    # Check if provider is in the shared AI providers array
+    (( ${GIT_WT_AI_PROVIDERS[(I)$provider]} ))
   }
 
   _git_wt__features() {
     emulate -L zsh
+    setopt localoptions noshwordsplit
 
     local project_root
     project_root=$(_git_wt__project_root) || return 0
 
-    local -a out
+    # Use auto-unique array to avoid duplicates
+    local -aU out
     local porcelain
     porcelain=$(command git -C "$project_root" worktree list --porcelain 2>/dev/null) || return 0
 
@@ -124,15 +131,16 @@ _git-wt() {
       fi
     done
 
-    out=(${(u)out})
     print -rl -- $out
   }
 
-  local context state state_desc line
+  local context state state_descr line
+  typeset -A opt_args
+  
   _arguments -C \
     '1:command:->cmds' \
     '2: :->args1' \
-    '*::arg:->args_rest'
+    '*::arg:->args_rest' && return 0
 
   case $state in
     (cmds)

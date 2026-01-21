@@ -5,23 +5,23 @@ typeset -g __GIT_WT_GIT_LOADED=1
 # ---- repo detection ----
 
 git_wt::git::rev_parse() {
-  # emulate -L zsh
-  # setopt localoptions
+  emulate -L zsh
+  setopt localoptions
 
   command git rev-parse "$@"
 }
 
 git_wt::git::is_inside_repo() {
-  # emulate -L zsh
-  # setopt localoptions
+  emulate -L zsh
+  setopt localoptions
 
   command git rev-parse --is-inside-work-tree >/dev/null 2>&1 \
     || command git rev-parse --git-dir >/dev/null 2>&1
 }
 
 git_wt::git::current_toplevel() {
-  # emulate -L zsh
-  # setopt localoptions
+  emulate -L zsh
+  setopt localoptions
 
   local result
   result=$(git_wt::git::rev_parse --path-format=absolute --show-toplevel 2>/dev/null \
@@ -32,48 +32,50 @@ git_wt::git::current_toplevel() {
 }
 
 git_wt::git::git_common_dir() {
-  # emulate -L zsh
-  # setopt localoptions
+  emulate -L zsh
+  setopt localoptions
 
   git_wt::git::rev_parse --path-format=absolute --git-common-dir 2>/dev/null \
     || git_wt::git::rev_parse --git-common-dir 2>/dev/null
 }
 
 git_wt::git::project_root() {
-  # emulate -L zsh
-  # setopt localoptions
-
+  emulate -L zsh
+  setopt localoptions
 
   if ! git_wt::git::is_inside_repo; then
     git_wt::die "project root: not inside a Git repository"
   fi
 
-
+  # Get the git common directory, which points to the shared .git location
+  # for all worktrees in a project
   local common_dir
   common_dir=$(git_wt::git::git_common_dir) || return 1
 
-  # Older Git may return relative paths.
+  # Normalize path: older Git versions may return relative paths
   if [[ $common_dir != /* ]]; then
     local toplevel
     toplevel=$(git_wt::git::current_toplevel) || return 1
     common_dir="$toplevel/$common_dir"
   fi
 
-  # For non-bare repos, the common dir ends with /.git
+  # For non-bare repos, common_dir ends with '/.git'
+  # The parent directory is the project root
   if [[ ${common_dir:t} == ".git" ]]; then
     print -r -- "${common_dir:h}"
     return 0
   fi
 
-  # Fall back to the current toplevel.
+  # Fallback: if common_dir doesn't end with .git (rare case),
+  # use the current toplevel as project root
   local result
   result=$(git_wt::git::current_toplevel)
   print -r -- "$result"
 }
 
 git_wt::git::project_name() {
-  # emulate -L zsh
-  # setopt localoptions
+  emulate -L zsh
+  setopt localoptions
 
   local root
   root=$(git_wt::git::project_root) || return 1
@@ -83,8 +85,8 @@ git_wt::git::project_name() {
 # ---- worktree layout ----
 
 git_wt::git::worktree_root_name() {
-  # emulate -L zsh
-  # setopt localoptions
+  emulate -L zsh
+  setopt localoptions
 
   if [[ -n ${GIT_WT_WORK_TREE_NAME-} ]]; then
     print -r -- "$GIT_WT_WORK_TREE_NAME"
@@ -97,8 +99,8 @@ git_wt::git::worktree_root_name() {
 }
 
 git_wt::git::worktree_root() {
-  # emulate -L zsh
-  # setopt localoptions
+  emulate -L zsh
+  setopt localoptions
 
   local project_root
   project_root=$(git_wt::git::project_root) || return 1
@@ -111,8 +113,8 @@ git_wt::git::worktree_root() {
 }
 
 git_wt::git::feature_path() {
-  # emulate -L zsh
-  # setopt localoptions
+  emulate -L zsh
+  setopt localoptions
 
   local feature=$1
   git_wt::require_arg feature "$feature" || return 1
@@ -124,8 +126,8 @@ git_wt::git::feature_path() {
 }
 
 git_wt::git::ensure_in_project_root() {
-  # emulate -L zsh
-  # setopt localoptions
+  emulate -L zsh
+  setopt localoptions
 
   local toplevel project_root
   toplevel=$(git_wt::git::current_toplevel) || return 1
@@ -134,12 +136,11 @@ git_wt::git::ensure_in_project_root() {
   if [[ $toplevel != $project_root ]]; then
     git_wt::die "invalid context: must run inside project root"
   fi
-
 }
 
 git_wt::git::ensure_in_feature_worktree() {
-  # emulate -L zsh
-  # setopt localoptions
+  emulate -L zsh
+  setopt localoptions
 
   local toplevel project_root
   toplevel=$(git_wt::git::current_toplevel) || return 1
@@ -153,8 +154,8 @@ git_wt::git::ensure_in_feature_worktree() {
 # ---- worktree inspection ----
 
 git_wt::git::worktree_paths() {
-  # emulate -L zsh
-  # setopt localoptions
+  emulate -L zsh
+  setopt localoptions
 
   local project_root
   project_root=$(git_wt::git::project_root) || return 1
@@ -182,8 +183,8 @@ git_wt::git::worktree_paths() {
 }
 
 git_wt::git::feature_names() {
-  # emulate -L zsh
-  # setopt localoptions
+  emulate -L zsh
+  setopt localoptions
 
   local project_root
   project_root=$(git_wt::git::project_root) || return 1
@@ -204,8 +205,8 @@ git_wt::git::feature_names() {
 }
 
 git_wt::git::worktree_status() {
-  # emulate -L zsh
-  # setopt localoptions
+  emulate -L zsh
+  setopt localoptions
 
   local wt_path=$1
   git_wt::require_arg path "$wt_path" || return 1
@@ -235,8 +236,8 @@ git_wt::git::worktree_status() {
 # ---- URL validation ----
 
 git_wt::git::validate_url() {
-  # emulate -L zsh
-  # setopt localoptions
+  emulate -L zsh
+  setopt localoptions
 
   local url=$1
   git_wt::require_arg url "$url" || return 1
@@ -257,8 +258,8 @@ git_wt::git::validate_url() {
 # ---- repo detection helpers ----
 
 git_wt::git::is_git_repo() {
-  # emulate -L zsh
-  # setopt localoptions
+  emulate -L zsh
+  setopt localoptions
 
   local dir=$1
   git_wt::require_arg dir "$dir" || return 1
@@ -267,8 +268,8 @@ git_wt::git::is_git_repo() {
 }
 
 git_wt::git::find_repos_in_dir() {
-  # emulate -L zsh
-  # setopt localoptions
+  emulate -L zsh
+  setopt localoptions
 
   local search_dir=$1
   git_wt::require_arg dir "$search_dir" || return 1
@@ -277,7 +278,8 @@ git_wt::git::find_repos_in_dir() {
 
   local -a repos
   local entry
-  for entry in "$search_dir"/*(N/); do
+  # Search only non-hidden directories (exclude .git, .vscode, etc.)
+  for entry in "$search_dir"/[^.]*(N/); do
     if git_wt::git::is_git_repo "$entry"; then
       repos+=("$entry")
     fi
@@ -289,8 +291,8 @@ git_wt::git::find_repos_in_dir() {
 }
 
 git_wt::git::has_worktrees() {
-  # emulate -L zsh
-  # setopt localoptions
+  emulate -L zsh
+  setopt localoptions
 
   local repo_dir=$1
   git_wt::require_arg dir "$repo_dir" || return 1

@@ -158,9 +158,7 @@ _git-wt() {
             'features:feature worktree:_git_wt__features_comp'
           ;;
         (switch|enter|remove|rm|e|merge|rebase)
-          local -a features
-          features=(${(f)$(_git_wt__features)})
-          _values 'feature' $features
+          _git_wt__features_comp
           ;;
         (config)
           _values 'key' ai editor work-tree-name

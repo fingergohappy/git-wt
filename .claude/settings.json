@@ -17,7 +17,8 @@
       "Bash(GIT_WT_PLUGIN_DIR=/Users/fingerfrings/code/my-code/git-wt source /Users/fingerfrings/code/my-code/git-wt/lib/git-wt/bootstrap.zsh)",
       "Bash(git_wt::git::is_inside_repo)",
       "Bash(source:*)",
-      "Bash(git-wt:*)"
+      "Bash(git-wt:*)",
+      "Bash(git:*)"
     ]
   }
 }

@@ -392,48 +392,53 @@ git_wt::cmd::rebase() {
 
 git_wt::cmd::a() {
   emulate -L zsh
+  setopt localoptions extendedglob
 
-  local first_arg=${1-}
-  shift || true
+  local provider
 
-  if [[ -z $first_arg ]]; then
-    git_wt::die "missing required argument: feature-name or provider"
+  # Parse --ai flag manually
+  if [[ $1 == --ai ]]; then
+    shift
+    provider=${1-}
+    shift || true
+  # Check for backward compatibility: positional provider (deprecated)
+  elif [[ ${1} = (${(j:|:)GIT_WT_AI_PROVIDERS}) ]]; then
+    provider=$1
+    shift
+    # Emit deprecation warning
+    git_wt::err "git-wt: warning: Using positional AI provider is deprecated. Use: git-wt a --ai $provider <feature>"
   fi
 
-  # Check if first argument is a known AI provider
-  case $first_arg in
-    (${(j:|:)GIT_WT_AI_PROVIDERS})
-      # Explicit AI: git-wt a claude my-feature
-      local provider=$first_arg
-      local feature=${1-}
-      shift || true
+  # Get feature name (first positional argument after flags)
+  local feature=${1-}
+  shift || true
 
-      git_wt::cmd::require_feature_name "$feature" || return 1
+  if [[ -z $feature ]]; then
+    git_wt::die "missing required argument: feature-name"
+  fi
 
-      local feature_path
-      feature_path=$(git_wt::git::feature_path "$feature") || return 1
+  git_wt::cmd::require_feature_name "$feature" || return 1
 
-      git_wt::ai::open "$provider" "$feature_path" "$@"
-      return $?
-      ;;
-    (*)
-      # Legacy behavior: git-wt a my-feature (uses configured default)
-      local feature=$first_arg
-      git_wt::cmd::require_feature_name "$feature" || return 1
+  local feature_path
+  feature_path=$(git_wt::git::feature_path "$feature") || return 1
 
-      if [[ -z ${GIT_WT_AI_CMD-} ]]; then
-        local providers_list=${(j:, :)GIT_WT_AI_PROVIDERS}
-        local providers_examples
-        providers_examples=$(printf '  git-wt a %s ${feature}\n' "${GIT_WT_AI_PROVIDERS[@]}")
-        git_wt::die "AI command not configured
+  if [[ -n $provider ]]; then
+    # Explicit provider via --ai flag or deprecated positional syntax
+    git_wt::ai::open "$provider" "$feature_path" "$@"
+    return $?
+  fi
+
+  # Legacy behavior: use configured default AI command
+  if [[ -z ${GIT_WT_AI_CMD-} ]]; then
+    local providers_examples
+    providers_examples=$(printf '  git-wt a --ai %s <feature>\n' "${GIT_WT_AI_PROVIDERS[@]}")
+    git_wt::die "AI command not configured
 hint: Use one of:
 ${providers_examples}hint: Or set a default:
   git-wt config ai <command>"
-      fi
+  fi
 
-      git_wt::cmd::open_with ai "${GIT_WT_AI_CMD}" "$feature"
-      ;;
-  esac
+  git_wt::cmd::open_with ai "${GIT_WT_AI_CMD}" "$feature"
 }
 
 git_wt::cmd::e() {
@@ -446,6 +451,7 @@ git_wt::cmd::e() {
 
 git_wt::cmd::ca() {
   emulate -L zsh
+  setopt localoptions extendedglob
 
   if (( $# < 1 )); then
     git_wt::die "missing required argument: feature-name"
@@ -454,21 +460,27 @@ git_wt::cmd::ca() {
   # Save original arguments
   local -a orig_args=("$@")
 
-  local first_arg=$1
-  local feature provider
+  local provider
+  local feature
 
-  # Check if first argument is a known AI provider
-  case $first_arg in
-    (${(j:|:)GIT_WT_AI_PROVIDERS})
-      # git-wt ca claude my-feature [--args]
-      provider=$first_arg
-      feature=${2-}
-      ;;
-    (*)
-      # git-wt ca my-feature
-      feature=$first_arg
-      ;;
-  esac
+  # Parse --ai flag manually
+  if [[ $1 == --ai ]]; then
+    shift
+    provider=${1-}
+    shift || true
+  # Check for backward compatibility: positional provider (deprecated)
+  elif [[ ${1} = (${(j:|:)GIT_WT_AI_PROVIDERS}) ]]; then
+    provider=$1
+    shift
+  fi
+
+  # Get feature name (first positional argument after flags)
+  feature=${1-}
+  shift || true
+
+  if [[ -z $feature ]]; then
+    git_wt::die "missing required argument: feature-name"
+  fi
 
   git_wt::cmd::require_feature_name "$feature" || return 1
 

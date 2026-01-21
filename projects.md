@@ -192,9 +192,13 @@ These commands are fixed shortcuts with no long-form equivalents.
     Open with configured editor
 
 ### 5.6 Open Commands
-`git-wt a <feature-name>`
+`git-wt a [--ai <provider>] <feature-name>`
 
-Open the feature worktree using the configured AI agent.
+Open the feature worktree using an AI agent.
+
+    With `--ai <provider>`: Open with specified AI provider (claude, cursorcli, opencode, codex)
+
+    Without `--ai`: Use configured AI agent (set via `git-wt config ai`)
 
     AI agent receives the worktree path as a positional argument
 

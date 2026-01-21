@@ -31,7 +31,7 @@ _git-wt() {
 
   # Extract command names automatically from commands array
   local -a cmd_names
-  cmd_names=(create switch enter root remove rm list ls status merge rebase a e ca cs ce config init)
+  cmd_names=(${commands%%:*})
 
   _git_wt__project_root() {
     emulate -L zsh

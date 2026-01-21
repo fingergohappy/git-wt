@@ -231,3 +231,87 @@ git_wt::git::worktree_status() {
 
   print -r -- uncommitted
 }
+
+# ---- URL validation ----
+
+git_wt::git::validate_url() {
+  # emulate -L zsh
+  # setopt localoptions
+
+  local url=$1
+  git_wt::require_arg url "$url" || return 1
+
+  # SSH format: git@host:path or ssh://git@host/path
+  if [[ $url == git@*:* || $url == ssh://*@* ]]; then
+    return 0
+  fi
+
+  # HTTPS format: https://host/path
+  if [[ $url == https://* ]]; then
+    return 0
+  fi
+
+  return 1
+}
+
+# ---- repo detection helpers ----
+
+git_wt::git::is_git_repo() {
+  # emulate -L zsh
+  # setopt localoptions
+
+  local dir=$1
+  git_wt::require_arg dir "$dir" || return 1
+
+  [[ -d $dir ]] && command git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1
+}
+
+git_wt::git::find_repos_in_dir() {
+  # emulate -L zsh
+  # setopt localoptions
+
+  local search_dir=$1
+  git_wt::require_arg dir "$search_dir" || return 1
+
+  [[ -d $search_dir ]] || return 1
+
+  local -a repos
+  local entry
+  for entry in "$search_dir"/*(N/); do
+    if git_wt::git::is_git_repo "$entry"; then
+      repos+=("$entry")
+    fi
+  done
+
+  if [[ -n $repos ]]; then
+    print -rl -- $repos
+  fi
+}
+
+git_wt::git::has_worktrees() {
+  # emulate -L zsh
+  # setopt localoptions
+
+  local repo_dir=$1
+  git_wt::require_arg dir "$repo_dir" || return 1
+
+  git_wt::git::is_git_repo "$repo_dir" || return 1
+
+  # Get worktree list and check if there are any beyond the main repo
+  local porcelain
+  porcelain=$(command git -C "$repo_dir" worktree list --porcelain 2>/dev/null) || return 1
+
+  local -a lines
+  lines=("${(@f)porcelain}")
+
+  local count=0
+  local line
+  for line in "${lines[@]}"; do
+    if [[ $line == worktree\ * ]]; then
+      ((count++))
+    fi
+  done
+
+  # Has worktrees if count > 1 (main repo counts as one)
+  (( count > 1 ))
+}

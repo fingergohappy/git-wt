@@ -84,40 +84,126 @@ git_wt::cmd::config() {
 
 git_wt::cmd::init() {
   emulate -L zsh
+  setopt localoptions extendedglob
 
-  local project_name=$1
-  git_wt::require_arg project-name "$project_name" || return 1
-
-  local project_dir="$PWD/$project_name"
-
-  if [[ -e $project_dir && ! -d $project_dir ]]; then
-    git_wt::die "${project_name} exists but is not a directory"
+  local arg=${1-}
+  local project_name url project_dir
+  local arg_provided=0
+  if [[ -n $arg ]]; then
+    arg_provided=1
   fi
 
-  if [[ ! -d $project_dir ]]; then
-    command mkdir -p -- "$project_dir" || return 1
-    command git -C "$project_dir" init >/dev/null || return 1
-  fi
+  # No argument provided - check current dir or find repos
+  if [[ -z $arg ]]; then
+    # Check if current directory is a git repository
+    if git_wt::git::is_inside_repo; then
+      project_dir=$(git_wt::git::current_toplevel) || return 1
+      project_name=${project_dir:t}
+    else
+      # Search for git repositories in current directory
+      local -a repos
+      repos=(${(f)"$(git_wt::git::find_repos_in_dir "$PWD")"})
+      # Filter out empty elements
+      repos=(${(M)repos:#?*})
 
-  if ! command git -C "$project_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    local reply
-    read -q "reply?${project_name} is not a Git repo. Initialize it? [y/N] "
-    print
-    if [[ $reply != y && $reply != Y ]]; then
-      return 1
+      if (( ${#repos[@]} == 0 )); then
+        git_wt::die "no Git repositories found in current directory" || return 1
+      elif (( ${#repos[@]} == 1 )); then
+        project_dir=$repos[1]
+        project_name=${project_dir:t}
+        print -r -- "Using Git repository: ${project_name}"
+      else
+        # Multiple repos found - error
+        git_wt::die "multiple Git repositories found in current directory" || return 1
+      fi
     fi
-    command git -C "$project_dir" init >/dev/null || return 1
+  # Check if argument is a URL
+  elif git_wt::git::validate_url "$arg" 2>/dev/null; then
+    url=$arg
+    # Extract expected directory name from URL
+    # Remove .git suffix, get basename, remove trailing slashes
+    local expected_dir=${${${url%.git}:t}%/}
+
+    # Check if target already exists
+    project_dir="$PWD/$expected_dir"
+    if [[ -e $project_dir ]]; then
+      if git_wt::git::is_git_repo "$project_dir"; then
+        project_name=$expected_dir
+        print -r -- "Using existing Git repository: ${project_name}"
+      else
+        git_wt::die "target path exists but is not a Git repository: ${project_dir}"
+      fi
+    else
+      # Clone without specifying target directory - let Git handle it
+      command git clone "$url" || return 1
+      project_name=$expected_dir
+      project_dir="$PWD/$project_name"
+    fi
+  else
+    # Local init - argument is project name
+    project_name=$arg
+    project_dir="$PWD/$project_name"
+
+    if [[ -e $project_dir && ! -d $project_dir ]]; then
+      git_wt::die "${project_name} exists but is not a directory"
+    fi
+
+    if [[ ! -d $project_dir ]]; then
+      command mkdir -p -- "$project_dir" || return 1
+      command git -C "$project_dir" init >/dev/null || return 1
+    else
+      # Directory exists - check if it's already a git repo
+      if git_wt::git::is_git_repo "$project_dir"; then
+        print -r -- "Using existing Git repository: ${project_name}"
+      else
+        # Not a git repo - prompt to initialize
+        if ! command git -C "$project_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+          local reply
+          read -q "reply?${project_name} is not a Git repo. Initialize it? [y/N] "
+          print
+          if [[ $reply != y && $reply != Y ]]; then
+            return 1
+          fi
+          command git -C "$project_dir" init >/dev/null || return 1
+        fi
+      fi
+    fi
   fi
 
-  local parent_dir=${project_dir:h}
-  local worktree_root_name
-  worktree_root_name=$(GIT_WT_WORK_TREE_NAME= git_wt::git::worktree_root_name 2>/dev/null || true)
-
-  if [[ -z $worktree_root_name ]]; then
-    worktree_root_name="${project_name}-work-tree"
+  # At this point, project_dir and project_name are set
+  # Check for existing worktrees
+  if git_wt::git::has_worktrees "$project_dir" 2>/dev/null; then
+    local wt_root
+    wt_root=$(GIT_WT_WORK_TREE_NAME= git -C "$project_dir" rev-parse --git-common-dir 2>/dev/null)
+    wt_root=${wt_root:h}
+    local parent=${project_dir:h}
+    # Check if worktree root is in parent directory
+    if [[ $wt_root == "$parent"/* ]]; then
+      print -r -- "Existing worktree root: ${wt_root}"
+      return 0
+    fi
   fi
+
+  local parent_dir
+  if (( arg_provided )); then
+    # Argument provided: use parent of project directory
+    parent_dir=${project_dir:h}
+  elif [[ $PWD == $project_dir ]]; then
+    # Inside the repo: use parent of project directory
+    parent_dir=${project_dir:h}
+  else
+    # Outside the repo (found via search): use current directory
+    parent_dir=$PWD
+  fi
+  local worktree_root_name="${project_name}-work-tree"
 
   local wt_root="$parent_dir/$worktree_root_name"
+
+  # Check if worktree root already exists
+  if [[ -d $wt_root ]]; then
+    print -r -- "Worktree root already exists: ${wt_root}"
+    return 0
+  fi
 
   local reply2
   read -q "reply2?Create worktree root at ${wt_root}? [y/N] "

@@ -24,7 +24,7 @@ _git-wt() {
     'cs:create and switch'
     'ce:create and open with editor'
     'config:configure ai/editor/work-tree-name'
-    'init:initialize project and worktree root'
+    'init:initialize project and worktree root (optional: auto-detect repos)'
   )
 
   # Extract command names for prefix completion
@@ -128,6 +128,11 @@ _git-wt() {
           ;;
         (config)
           _values 'key' ai editor work-tree-name
+          ;;
+        (init)
+          if (( CURRENT == 3 )); then
+            _message 'project-name or URL (optional: auto-detects repos in current dir)'
+          fi
           ;;
         (*)
           return 0

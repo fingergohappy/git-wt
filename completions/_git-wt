@@ -168,12 +168,6 @@ _git-wt() {
     (args1)
       case ${words[2]-} in
         (a)
-          # If --ai flag was already entered, complete AI providers
-          if [[ ${words[3]-} == --ai ]]; then
-            _git_wt__ai_providers_comp
-            return 0
-          fi
-          
           _alternative \
             'flags:flag:_git_wt__a_flags_comp' \
             'features:feature worktree:_git_wt__features_comp'
@@ -195,21 +189,9 @@ _git-wt() {
       esac
       ;;
     (args_rest)
-      case ${words[2]-} in
+      case ${words[1]-} in
         (a)
-          # Check if previous word is --ai flag (cursor after --ai)
-          if [[ ${words[CURRENT-1]-} == --ai ]]; then
-            _git_wt__ai_providers_comp
-            return 0
-          fi
-
-          # Check if current word is --ai flag (cursor on --ai)
-          if [[ ${words[CURRENT]-} == --ai ]]; then
-            _git_wt__ai_providers_comp
-            return 0
-          fi
-
-          # Find --ai flag position for additional checks
+          # Find --ai flag position
           local ai_index=0
           local i
           for (( i=1; i<=$#words; i++ )); do
@@ -219,22 +201,27 @@ _git-wt() {
             fi
           done
 
+          # If --ai flag exists
           if (( ai_index > 0 )); then
-            local provider=${words[ai_index+1]-}
-            
-            # If cursor is right after --ai flag position
+            # If cursor is right after --ai flag, complete AI providers
             if (( CURRENT == ai_index + 1 )); then
               _git_wt__ai_providers_comp
               return 0
             fi
 
-            # If a provider was already specified, complete features next
+            # If a provider was already specified, complete features
+            local provider=${words[ai_index+1]-}
             if [[ -n $provider ]] && _git_wt__is_ai_provider "$provider"; then
               if (( CURRENT == ai_index + 2 )); then
                 _git_wt__features_comp
                 return 0
               fi
             fi
+          else
+            # No --ai flag yet, offer flags or features
+            _alternative \
+              'flags:flag:_git_wt__a_flags_comp' \
+              'features:feature worktree:_git_wt__features_comp'
           fi
 
           return 0

@@ -7,9 +7,43 @@ _git-wt() {
   emulate -L zsh
   setopt localoptions noshwordsplit
 
-  # Define AI providers (must match bootstrap.zsh)
+  # Dynamically discover AI providers from ai directory
   local -a GIT_WT_AI_PROVIDERS
-  GIT_WT_AI_PROVIDERS=(claude cursorcli opencode codex)
+  GIT_WT_AI_PROVIDERS=()
+  
+  # Try to find git-wt installation directory
+  local git_wt_dir
+  # Check common installation paths
+  for git_wt_dir in \
+    "${0:A:h:h}" \
+    "${fpath[@]/%\/_git-wt/}" \
+    "$HOME/.oh-my-zsh/custom/plugins/git-wt" \
+    "$HOME/.config/zsh/plugins/git-wt" \
+    "/usr/local/share/git-wt" \
+    ; do
+    if [[ -d "$git_wt_dir/lib/git-wt/ai" ]]; then
+      local ai_dir="$git_wt_dir/lib/git-wt/ai"
+      setopt localoptions extendedglob nullglob
+      local provider_file
+      for provider_file in $ai_dir/*.zsh(N); do
+        local provider_name=${provider_file:t:r}
+        case $provider_name in
+          (bootstrap|providers)
+            continue
+            ;;
+          (*)
+            GIT_WT_AI_PROVIDERS+=($provider_name)
+            ;;
+        esac
+      done
+      break
+    fi
+  done
+  
+  # Fallback if directory not found
+  if (( $#GIT_WT_AI_PROVIDERS == 0 )); then
+    GIT_WT_AI_PROVIDERS=(claude cursorcli opencode codex)
+  fi
 
   local -a commands
   commands=(
@@ -66,7 +100,7 @@ _git-wt() {
     # Use shared AI providers array from bootstrap
     local provider
     for provider in "${GIT_WT_AI_PROVIDERS[@]}"; do
-      print -r -- "${provider}:AI provider"
+      print -r -- "${provider}:AI"
     done
   }
 

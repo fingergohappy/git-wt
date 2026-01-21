@@ -11,14 +11,14 @@ local ai_dir=${0:A:h}
 
 # Load provider implementations (skip bootstrap.zsh and providers.zsh)
 setopt localoptions extendedglob
-local provider_file
-for provider_file in $ai_dir/*.zsh; do
-  case ${provider_file:t} in
+local provider_impl
+for provider_impl in $ai_dir/*.zsh; do
+  case ${provider_impl:t} in
     (bootstrap.zsh|providers.zsh)
       continue
       ;;
     (*)
-      source "$provider_file"
+      source "$provider_impl"
       ;;
   esac
 done

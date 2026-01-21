@@ -25,9 +25,27 @@ local this_file=${(%):-%N}
 typeset -g GIT_WT_ROOT_DIR=${this_file:A:h:h:h}
 typeset -g GIT_WT_LIB_DIR="$GIT_WT_ROOT_DIR/lib/git-wt"
 
-# Define supported AI providers (shared constant)
+# Dynamically discover AI providers from ai directory
 typeset -ga GIT_WT_AI_PROVIDERS
-GIT_WT_AI_PROVIDERS=(claude cursorcli opencode codex)
+GIT_WT_AI_PROVIDERS=()
+
+local ai_dir="$GIT_WT_LIB_DIR/ai"
+if [[ -d $ai_dir ]]; then
+  setopt localoptions extendedglob nullglob
+  local provider_file
+  for provider_file in $ai_dir/*.zsh(N); do
+    local provider_name=${provider_file:t:r}
+    case $provider_name in
+      (bootstrap|providers)
+        # Skip bootstrap and providers files
+        continue
+        ;;
+      (*)
+        GIT_WT_AI_PROVIDERS+=($provider_name)
+        ;;
+    esac
+  done
+fi
 
 source "$GIT_WT_LIB_DIR/util.zsh" || return 1
 source "$GIT_WT_LIB_DIR/git.zsh" || return 1

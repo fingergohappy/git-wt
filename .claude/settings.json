@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(openspec:*)",
+      "Bash(unfunction _git-wt)",
+      "Bash(autoload -Uz _git-wt)",
+      "Bash(echo:*)",
+      "Bash(zsh -c:*)",
+      "Bash(zsh -cx '\nsource /Users/fingerfrings/code/my-code/git-wt/git-wt.plugin.zsh\ngit-wt list\nexit 0\n')",
+      "Bash(zsh '\nsource /Users/fingerfrings/code/my-code/git-wt/git-wt.plugin.zsh\necho \"\"Before list\"\"\ngit-wt list\necho \"\"After list\"\"\n')",
+      "Bash(zsh)",
+      "Bash(compinit:*)",
+      "Bash(autoload:*)",
+      "Bash(compaudit:*)",
+      "Bash(zsh -fc 'source /Users/fingerfrings/code/my-code/git-wt/git-wt.plugin.zsh && git-wt list && echo \"\"SUCCESS\"\"')",
+      "Bash(command git rev-parse --is-inside-work-tree)",
+      "Bash(GIT_WT_PLUGIN_DIR=/Users/fingerfrings/code/my-code/git-wt source /Users/fingerfrings/code/my-code/git-wt/lib/git-wt/bootstrap.zsh)",
+      "Bash(git_wt::git::is_inside_repo)",
+      "Bash(source:*)",
+      "Bash(git-wt:*)"
+    ]
+  }
+}

@@ -17,3 +17,4 @@ typeset -g GIT_WT_LIB_DIR="$GIT_WT_ROOT_DIR/lib/git-wt"
 source "$GIT_WT_LIB_DIR/util.zsh" || return 1
 source "$GIT_WT_LIB_DIR/git.zsh" || return 1
 source "$GIT_WT_LIB_DIR/commands.zsh" || return 1
+source "$GIT_WT_LIB_DIR/ai/bootstrap.zsh" || return 1

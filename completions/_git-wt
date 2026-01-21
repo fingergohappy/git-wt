@@ -55,6 +55,17 @@ _git-wt() {
     print -r -- "$toplevel"
   }
 
+  _git_wt__ai_providers() {
+    emulate -L zsh
+    print -rl -- claude cursorcli opencode codex
+  }
+
+  _git_wt__is_ai_provider() {
+    emulate -L zsh
+    local provider=$1
+    [[ $provider == claude || $provider == cursorcli || $provider == opencode || $provider == codex ]]
+  }
+
   _git_wt__features() {
     emulate -L zsh
 
@@ -81,10 +92,11 @@ _git-wt() {
     print -rl -- $out
   }
 
-  local context state line
+  local context state state_desc line
   _arguments -C \
     '1:command:->cmds' \
-    '*::arg:->args'
+    '2:: :->args1' \
+    '*::arg:->args_rest'
 
   case $state in
     (cmds)
@@ -97,15 +109,40 @@ _git-wt() {
         _describe -t commands 'git-wt command' commands
       fi
       ;;
-    (args)
+    (args1)
       case ${words[2]-} in
-        (switch|enter|remove|a|e|merge|rebase)
+        (a)
+          # For 'a' command, complete AI providers first, then features
+          local -a ai_providers
+          ai_providers=(${(f)$(_git_wt__ai_providers)})
+          local -a features
+          features=(${(f)$(_git_wt__features)})
+          _alternative \
+            'ai-providers:AI provider:_values "AI provider" $ai_providers' \
+            'features:feature:_values "feature" $features'
+          ;;
+        (switch|enter|remove|e|merge|rebase)
           local -a features
           features=(${(f)$(_git_wt__features)})
           _values 'feature' $features
           ;;
         (config)
           _values 'key' ai editor work-tree-name
+          ;;
+        (*)
+          return 0
+          ;;
+      esac
+      ;;
+    (args_rest)
+      case ${words[2]-} in
+        (a)
+          # If second arg was an AI provider, complete features
+          if _git_wt__is_ai_provider ${words[3]-}; then
+            local -a features
+            features=(${(f)$(_git_wt__features)})
+            _values 'feature' $features
+          fi
           ;;
         (*)
           return 0

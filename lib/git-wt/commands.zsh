@@ -295,9 +295,48 @@ git_wt::cmd::rebase() {
 git_wt::cmd::a() {
   emulate -L zsh
 
-  local feature=$1
-  git_wt::cmd::require_feature_name "$feature" || return 1
-  git_wt::cmd::open_with ai "${GIT_WT_AI_CMD-}" "$feature"
+  local first_arg=${1-}
+  shift || true
+
+  if [[ -z $first_arg ]]; then
+    git_wt::die "missing required argument: feature-name or provider"
+  fi
+
+  # Check if first argument is a known AI provider
+  case $first_arg in
+    (claude|cursorcli|opencode|codex)
+      # Explicit AI: git-wt a claude my-feature
+      local provider=$first_arg
+      local feature=${1-}
+      shift || true
+
+      git_wt::cmd::require_feature_name "$feature" || return 1
+
+      local feature_path
+      feature_path=$(git_wt::git::feature_path "$feature") || return 1
+
+      git_wt::ai::open "$provider" "$feature_path" "$@"
+      return $?
+      ;;
+    (*)
+      # Legacy behavior: git-wt a my-feature (uses configured default)
+      local feature=$first_arg
+      git_wt::cmd::require_feature_name "$feature" || return 1
+
+      if [[ -z ${GIT_WT_AI_CMD-} ]]; then
+        git_wt::die "AI command not configured
+hint: Use one of:
+  git-wt a claude ${feature}
+  git-wt a cursorcli ${feature}
+  git-wt a opencode ${feature}
+  git-wt a codex ${feature}
+hint: Or set a default:
+  git-wt config ai <command>"
+      fi
+
+      git_wt::cmd::open_with ai "${GIT_WT_AI_CMD}" "$feature"
+      ;;
+  esac
 }
 
 git_wt::cmd::e() {
@@ -311,8 +350,36 @@ git_wt::cmd::e() {
 git_wt::cmd::ca() {
   emulate -L zsh
 
-  git_wt::cmd::create "$@" || return 1
-  git_wt::cmd::a "$@"
+  if (( $# < 1 )); then
+    git_wt::die "missing required argument: feature-name"
+  fi
+
+  # Save original arguments
+  local -a orig_args=("$@")
+
+  local first_arg=$1
+  local feature provider
+
+  # Check if first argument is a known AI provider
+  case $first_arg in
+    (claude|cursorcli|opencode|codex)
+      # git-wt ca claude my-feature [--args]
+      provider=$first_arg
+      feature=${2-}
+      ;;
+    (*)
+      # git-wt ca my-feature
+      feature=$first_arg
+      ;;
+  esac
+
+  git_wt::cmd::require_feature_name "$feature" || return 1
+
+  # Create the feature worktree
+  git_wt::cmd::create "$feature" || return 1
+
+  # Open with AI (pass through original arguments)
+  git_wt::cmd::a "$orig_args[@]"
 }
 
 git_wt::cmd::cs() {

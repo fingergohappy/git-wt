@@ -29,7 +29,7 @@ git_wt::usage() {
   git_wt::err "usage: git-wt <command> [args...]"
   git_wt::err "commands:"
   git_wt::err "  create <feature>"
-  git_wt::err "  switch <feature> | enter <feature>"
+  git_wt::err "  switch <feature> | enter <feature> | cd <feature>"
   git_wt::err "  root"
   git_wt::err "  remove <feature>"
   git_wt::err "  list"

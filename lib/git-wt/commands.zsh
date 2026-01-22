@@ -530,6 +530,7 @@ git_wt::main() {
     (create) git_wt::cmd::create "$@" ;;
     (switch) git_wt::cmd::switch "$@" ;;
     (enter) git_wt::cmd::enter "$@" ;;
+    (cd) git_wt::cmd::switch "$@" ;;
     (root) git_wt::cmd::root "$@" ;;
     (remove) git_wt::cmd::remove "$@" ;;
     (rm) git_wt::cmd::remove "$@" ;;

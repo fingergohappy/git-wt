@@ -83,6 +83,7 @@ git-wt create my-feature
 git-wt switch my-feature
 # alias:
 # git-wt enter my-feature
+# git-wt cd my-feature
 ```
 
 ### 4) Back to project root
@@ -101,6 +102,7 @@ git-wt root
 create <feature>            create new worktree + branch
 switch <feature>            cd to feature worktree
 enter <feature>             alias of switch
+cd <feature>                alias of switch
 root                        cd back to project root
 remove <feature>            remove feature worktree
 rm                          alias of remove

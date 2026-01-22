@@ -50,6 +50,7 @@ _git-wt() {
     'create:create new worktree + branch'
     'switch:switch to feature worktree'
     'enter:alias of switch'
+    'cd:alias of switch'
     'root:cd back to project root'
     'remove:remove feature worktree'
     'rm:alias of remove'
@@ -206,7 +207,7 @@ _git-wt() {
             'flags:flag:_git_wt__a_flags_comp' \
             'features:feature worktree:_git_wt__features_comp'
           ;;
-        (switch|enter|remove|rm|e|merge|rebase)
+        (switch|enter|cd|remove|rm|e|merge|rebase)
           _git_wt__features_comp
           ;;
         (config)

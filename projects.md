@@ -163,6 +163,10 @@ Switches the current shell directory to the specified feature worktree.
 
 Alias of switch.
 
+`git-wt cd <feature-name>`
+
+Alias of switch.
+
 `git-wt root`
 
 Switches the current shell directory back to the project root.

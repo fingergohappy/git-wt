@@ -317,3 +317,23 @@ git_wt::git::has_worktrees() {
   # Has worktrees if count > 1 (main repo counts as one)
   (( count > 1 ))
 }
+
+git_wt::git::matching_remote_branches() {
+  emulate -L zsh
+  setopt localoptions
+
+  local feature=$1
+  git_wt::require_arg feature "$feature" || return 1
+
+  local project_root
+  project_root=$(git_wt::git::project_root) || return 1
+
+  local refs
+  refs=$(command git -C "$project_root" for-each-ref \
+    --format='%(refname:short)' \
+    "refs/remotes/*/${feature}" 2>/dev/null) || return 1
+
+  if [[ -n $refs ]]; then
+    print -r -- "$refs"
+  fi
+}

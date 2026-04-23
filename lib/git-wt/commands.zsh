@@ -256,7 +256,21 @@ git_wt::cmd::create() {
     git_wt::die "target path already exists: ${feature_path}"
   fi
 
-  command git worktree add "$feature_path" -b "$feature"
+  local -a remote_branches
+  remote_branches=(${(f)"$(git_wt::git::matching_remote_branches "$feature")"})
+
+  if (( ${#remote_branches[@]} > 1 )); then
+    git_wt::die "matching remote branch is ambiguous for ${feature}: ${(j:, :)remote_branches}"
+    return 1
+  fi
+
+  if (( ${#remote_branches[@]} == 1 )); then
+    command git worktree add --track -b "$feature" "$feature_path" "$remote_branches[1]" || return 1
+    print -r -- "Using remote branch: ${remote_branches[1]}"
+    return 0
+  fi
+
+  command git worktree add -b "$feature" "$feature_path"
 }
 
 git_wt::cmd::switch() {

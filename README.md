@@ -77,9 +77,9 @@ git-wt create my-feature
 # git-wt cs my-feature
 ```
 
-If a matching remote branch such as `origin/my-feature` already exists, `git-wt create my-feature`
-creates the local branch from that remote branch, configures tracking, and prints which remote branch
-was used.
+If a local branch named `my-feature` already exists, `git-wt create my-feature` reuses it for the new
+worktree. Otherwise, if a matching remote branch such as `origin/my-feature` exists, the command creates
+the local branch from that remote branch, configures tracking, and prints which remote branch was used.
 
 ### 3) Switch between worktrees
 

@@ -337,3 +337,16 @@ git_wt::git::matching_remote_branches() {
     print -r -- "$refs"
   fi
 }
+
+git_wt::git::has_local_branch() {
+  emulate -L zsh
+  setopt localoptions
+
+  local feature=$1
+  git_wt::require_arg feature "$feature" || return 1
+
+  local project_root
+  project_root=$(git_wt::git::project_root) || return 1
+
+  command git -C "$project_root" show-ref --verify --quiet "refs/heads/${feature}"
+}

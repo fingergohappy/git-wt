@@ -256,6 +256,11 @@ git_wt::cmd::create() {
     git_wt::die "target path already exists: ${feature_path}"
   fi
 
+  if git_wt::git::has_local_branch "$feature"; then
+    command git worktree add "$feature_path" "$feature"
+    return $?
+  fi
+
   local -a remote_branches
   remote_branches=(${(f)"$(git_wt::git::matching_remote_branches "$feature")"})
 

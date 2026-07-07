@@ -93,9 +93,7 @@ git_wt::git::worktree_root_name() {
     return 0
   fi
 
-  local name
-  name=$(git_wt::git::project_name) || return 1
-  print -r -- "${name}-work-tree"
+  print -r -- ".worktree"
 }
 
 git_wt::git::worktree_root() {
@@ -105,11 +103,25 @@ git_wt::git::worktree_root() {
   local project_root
   project_root=$(git_wt::git::project_root) || return 1
 
-  local parent=${project_root:h}
   local wt_name
   wt_name=$(git_wt::git::worktree_root_name) || return 1
 
-  print -r -- "$parent/$wt_name"
+  print -r -- "$project_root/$wt_name"
+}
+
+git_wt::git::ensure_worktree_root_ignore() {
+  emulate -L zsh
+  setopt localoptions
+
+  local wt_root=$1
+  git_wt::require_arg worktree_root "$wt_root" || return 1
+
+  local ignore_file="$wt_root/.gitignore"
+  if [[ -e $ignore_file ]]; then
+    return 0
+  fi
+
+  print -r -- "*" >| "$ignore_file"
 }
 
 git_wt::git::feature_path() {

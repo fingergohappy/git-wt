@@ -178,40 +178,13 @@ git_wt::cmd::init() {
   fi
 
   # At this point, project_dir and project_name are set
-  # Check for existing worktrees
-  if git_wt::git::has_worktrees "$project_dir" 2>/dev/null; then
-    local wt_root
-    wt_root=$(GIT_WT_WORK_TREE_NAME= git -C "$project_dir" rev-parse --git-common-dir 2>/dev/null)
-    wt_root=${wt_root:h}
-    local parent=${project_dir:h}
-    # Check if worktree root is in parent directory
-    if [[ $wt_root == "$parent"/* ]]; then
-      print -r -- "Existing worktree root: ${wt_root}"
-      return 0
-    fi
-  fi
+  local worktree_root_name=${GIT_WT_WORK_TREE_NAME:-.worktree}
 
-  # Determine parent directory for worktree root:
-  # - If argument was provided: use parent of project_dir (standard case)
-  # - If PWD == project_dir: we're inside the repo, use its parent
-  # - Otherwise: we're outside (found via search), use current directory
-  local parent_dir
-  if (( arg_provided )); then
-    # Argument provided: use parent of project directory
-    parent_dir=${project_dir:h}
-  elif [[ $PWD == $project_dir ]]; then
-    # Inside the repo: use parent of project directory
-    parent_dir=${project_dir:h}
-  else
-    # Outside the repo (found via search): use current directory
-    parent_dir=$PWD
-  fi
-  local worktree_root_name="${project_name}-work-tree"
-
-  local wt_root="$parent_dir/$worktree_root_name"
+  local wt_root="$project_dir/$worktree_root_name"
 
   # Check if worktree root already exists
   if [[ -d $wt_root ]]; then
+    git_wt::git::ensure_worktree_root_ignore "$wt_root" || return 1
     print -r -- "Worktree root already exists: ${wt_root}"
     return 0
   fi
@@ -221,6 +194,7 @@ git_wt::cmd::init() {
   print
   if [[ $reply2 == y || $reply2 == Y ]]; then
     command mkdir -p -- "$wt_root" || return 1
+    git_wt::git::ensure_worktree_root_ignore "$wt_root" || return 1
   fi
 }
 
@@ -239,12 +213,13 @@ git_wt::cmd::create() {
   # Try to get worktree root, check if it exists
   local wt_root
   if ! wt_root=$(git_wt::git::worktree_root 2>/dev/null); then
-    git_wt::die "project not initialized (run: git-wt init <project-name> from parent directory)"
+    git_wt::die "project not initialized (run: git-wt init)"
   fi
 
   if [[ ! -d $wt_root ]]; then
-    git_wt::die "worktree root does not exist: ${wt_root} (run: git-wt init <project-name> from parent directory)"
+    git_wt::die "worktree root does not exist: ${wt_root} (run: git-wt init)"
   fi
+  git_wt::git::ensure_worktree_root_ignore "$wt_root" || return 1
 
   # Ensure we're in the project root, not a feature worktree
   git_wt::git::ensure_in_project_root || return 1

@@ -87,15 +87,15 @@ Given working directory `/aa/b`:
 ```text
 /aa/b/
 ├── my-project/
-│   └── .git/
-├── my-project-work-tree/
-│   ├── feature-a/
-│   ├── feature-b/
+│   ├── .git/
+│   └── .worktree/
+│       ├── feature-a/
+│       ├── feature-b/
 ```
 
 Default worktree root name:
 
-{project-name}-work-tree
+.worktree
 
 ---
 
@@ -137,11 +137,9 @@ Overrides the default worktree root directory name.
 
             Create <project-name> and initialize it as a Git repository
 
-        Ask whether to create the worktree root directory in the parent directory
+        Ask whether to create the worktree root directory under the project directory
 
-        Parent directory is the parent of the current Git repository; if the current directory is not a Git repository, return an error
-
-        If confirmed, create <project-name>-work-tree (worktree root)
+        If confirmed, create .worktree (worktree root)
 
 ### 5.3 Worktree Creation
 `git-wt create <feature-name>`
@@ -254,11 +252,11 @@ Displays contextual information:
 
 project: my-project
 root: /aa/b/my-project
-worktree root: /aa/b/my-project-work-tree
+worktree root: /aa/b/my-project/.worktree
 current:
   type: feature
   name: my-feature
-  path: /aa/b/my-project-work-tree/my-feature
+  path: /aa/b/my-project/.worktree/my-feature
   status: clean
 
 ### 5.9 Integration

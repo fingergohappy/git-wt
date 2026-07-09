@@ -67,7 +67,7 @@ git-wt init my-repo
 
 ### 2) Create a feature worktree
 
-Run from the project root:
+Run from the project root or an existing feature worktree:
 
 ```zsh
 cd ~/code/my-repo
@@ -80,7 +80,8 @@ git-wt create my-feature
 If a local branch named `my-feature` already exists, `git-wt create my-feature` reuses it for the new
 worktree. Otherwise, if a matching remote branch such as `origin/my-feature` exists, the command creates
 the local branch from that remote branch, configures tracking, and prints which remote branch was used.
-If neither exists, it creates a new local branch from the current `HEAD`.
+If neither exists, it creates a new local branch from the current `HEAD`, so creating from inside an
+existing worktree branches from that worktree.
 
 ### 3) Switch between worktrees
 

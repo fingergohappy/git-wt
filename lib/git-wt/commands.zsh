@@ -209,6 +209,10 @@ git_wt::cmd::create() {
     git_wt::die "command create: not inside a Git repository"
   fi
 
+  local project_root start_point
+  project_root=$(git_wt::git::project_root) || return 1
+  start_point=$(git_wt::git::rev_parse --verify HEAD) || return 1
+
   # Try to get worktree root, check if it exists
   local wt_root
   if ! wt_root=$(git_wt::git::worktree_root 2>/dev/null); then
@@ -220,9 +224,6 @@ git_wt::cmd::create() {
   fi
   git_wt::git::ensure_worktree_root_ignore "$wt_root" || return 1
 
-  # Ensure we're in the project root, not a feature worktree
-  git_wt::git::ensure_in_project_root || return 1
-
   local feature_path
   feature_path=$(git_wt::git::feature_path "$feature") || return 1
 
@@ -231,7 +232,7 @@ git_wt::cmd::create() {
   fi
 
   if git_wt::git::has_local_branch "$feature"; then
-    command git worktree add "$feature_path" "$feature"
+    command git -C "$project_root" worktree add "$feature_path" "$feature"
     return $?
   fi
 
@@ -244,12 +245,12 @@ git_wt::cmd::create() {
   fi
 
   if (( ${#remote_branches[@]} == 1 )); then
-    command git worktree add --track -b "$feature" "$feature_path" "$remote_branches[1]" || return 1
+    command git -C "$project_root" worktree add --track -b "$feature" "$feature_path" "$remote_branches[1]" || return 1
     print -r -- "Using remote branch: ${remote_branches[1]}"
     return 0
   fi
 
-  command git worktree add -b "$feature" "$feature_path"
+  command git -C "$project_root" worktree add -b "$feature" "$feature_path" "$start_point"
 }
 
 git_wt::cmd::switch() {

@@ -25,10 +25,11 @@ assert_eq() {
 tmp_dir=$(mktemp -d)
 trap 'rm -rf "$tmp_dir"' EXIT INT TERM
 
-test_default_worktree_root_is_project_dot_worktree() {
+test_default_worktree_root_is_parent_project_wrktrees() {
   local repo="$tmp_dir/default-root/repo"
   command mkdir -p -- "$repo"
   repo=${repo:A}
+  local parent=${repo:h}
   command git -C "$repo" init -q
 
   builtin cd -- "$repo"
@@ -36,10 +37,10 @@ test_default_worktree_root_is_project_dot_worktree() {
   local actual
   actual=$(git_wt::git::worktree_root)
 
-  assert_eq "$repo/.worktree" "$actual" "default worktree root"
+  assert_eq "$parent/.repo-wrktrees" "$actual" "default worktree root"
 }
 
-test_init_creates_project_dot_worktree_with_ignore() {
+test_init_creates_parent_project_wrktrees_with_ignore() {
   local parent="$tmp_dir/init-root"
   local repo="$parent/repo"
   command mkdir -p -- "$parent"
@@ -64,11 +65,12 @@ test_init_creates_project_dot_worktree_with_ignore() {
   git_wt::cmd::init repo >/dev/null
   unfunction read
 
-  [[ -d "$repo/.worktree" ]] || fail "init did not create $repo/.worktree"
-  [[ -f "$repo/.worktree/.gitignore" ]] || fail "init did not create $repo/.worktree/.gitignore"
+  local wt_root="$parent/.repo-wrktrees"
+  [[ -d "$wt_root" ]] || fail "init did not create $wt_root"
+  [[ -f "$wt_root/.gitignore" ]] || fail "init did not create $wt_root/.gitignore"
 
   local ignore_contents
-  ignore_contents=$(<"$repo/.worktree/.gitignore")
+  ignore_contents=$(<"$wt_root/.gitignore")
 
   assert_eq "*" "$ignore_contents" "worktree root ignore contents"
 }
@@ -83,19 +85,20 @@ test_create_ensures_existing_worktree_root_ignore() {
   print -r -- "initial" > "$repo/file.txt"
   command git -C "$repo" add file.txt
   command git -C "$repo" commit -q -m init
-  command mkdir -p -- "$repo/.worktree"
+  local wt_root="${repo:h}/.repo-wrktrees"
+  command mkdir -p -- "$wt_root"
 
   builtin cd -- "$repo"
 
   git_wt::cmd::create feature-one >/dev/null 2>&1
 
-  [[ -d "$repo/.worktree/feature-one" ]] || fail "create did not create $repo/.worktree/feature-one"
-  [[ -f "$repo/.worktree/.gitignore" ]] || fail "create did not create $repo/.worktree/.gitignore"
+  [[ -d "$wt_root/feature-one" ]] || fail "create did not create $wt_root/feature-one"
+  [[ -f "$wt_root/.gitignore" ]] || fail "create did not create $wt_root/.gitignore"
   [[ -z "$(command git -C "$repo" status --porcelain)" ]] || fail "create left main repository dirty"
 }
 
-test_default_worktree_root_is_project_dot_worktree
-test_init_creates_project_dot_worktree_with_ignore
+test_default_worktree_root_is_parent_project_wrktrees
+test_init_creates_parent_project_wrktrees_with_ignore
 test_create_ensures_existing_worktree_root_ignore
 
 print -r -- "ok default-worktree-root"

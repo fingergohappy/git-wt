@@ -88,12 +88,32 @@ git_wt::git::worktree_root_name() {
   emulate -L zsh
   setopt localoptions
 
+  local project_root=${1-}
+
   if [[ -n ${GIT_WT_WORK_TREE_NAME-} ]]; then
     print -r -- "$GIT_WT_WORK_TREE_NAME"
     return 0
   fi
 
-  print -r -- ".worktree"
+  if [[ -z $project_root ]]; then
+    project_root=$(git_wt::git::project_root) || return 1
+  fi
+
+  print -r -- ".${project_root:t}-wrktrees"
+}
+
+git_wt::git::worktree_root_for_project() {
+  emulate -L zsh
+  setopt localoptions
+
+  local project_root=$1
+  git_wt::require_arg project_root "$project_root" || return 1
+  project_root=${project_root:A}
+
+  local wt_name
+  wt_name=$(git_wt::git::worktree_root_name "$project_root") || return 1
+
+  print -r -- "${project_root:h}/$wt_name"
 }
 
 git_wt::git::worktree_root() {
@@ -103,10 +123,7 @@ git_wt::git::worktree_root() {
   local project_root
   project_root=$(git_wt::git::project_root) || return 1
 
-  local wt_name
-  wt_name=$(git_wt::git::worktree_root_name) || return 1
-
-  print -r -- "$project_root/$wt_name"
+  git_wt::git::worktree_root_for_project "$project_root"
 }
 
 git_wt::git::ensure_worktree_root_ignore() {
@@ -124,6 +141,16 @@ git_wt::git::ensure_worktree_root_ignore() {
   print -r -- "*" >| "$ignore_file"
 }
 
+git_wt::git::worktree_dir_name() {
+  emulate -L zsh
+  setopt localoptions
+
+  local feature=$1
+  git_wt::require_arg feature "$feature" || return 1
+
+  print -r -- "${feature//\//-}"
+}
+
 git_wt::git::feature_path() {
   emulate -L zsh
   setopt localoptions
@@ -134,7 +161,10 @@ git_wt::git::feature_path() {
   local wt_root
   wt_root=$(git_wt::git::worktree_root) || return 1
 
-  print -r -- "$wt_root/$feature"
+  local wt_dir
+  wt_dir=$(git_wt::git::worktree_dir_name "$feature") || return 1
+
+  print -r -- "$wt_root/$wt_dir"
 }
 
 git_wt::git::ensure_in_project_root() {
@@ -202,12 +232,16 @@ git_wt::git::feature_names() {
   project_root=$(git_wt::git::project_root) || return 1
 
   local -a features
-  local wt_path
+  local wt_path feature
   for wt_path in $(git_wt::git::worktree_paths); do
     if [[ $wt_path == $project_root ]]; then
       continue
     fi
-    features+=("${wt_path:t}")
+    feature=$(command git -C "$wt_path" branch --show-current 2>/dev/null)
+    if [[ -z $feature ]]; then
+      feature=${wt_path:t}
+    fi
+    features+=("$feature")
   done
 
   # Unique + stable order.

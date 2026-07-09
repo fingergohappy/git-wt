@@ -20,8 +20,8 @@ git_wt::cmd::require_feature_name() {
     git_wt::die "invalid feature name: ${feature}"
   fi
 
-  if [[ $feature == *'/'* ]]; then
-    git_wt::die "invalid feature name (must not contain '/'): ${feature}"
+  if ! command git check-ref-format --branch "$feature" >/dev/null 2>&1; then
+    git_wt::die "invalid feature name: ${feature}"
   fi
 }
 
@@ -178,9 +178,8 @@ git_wt::cmd::init() {
   fi
 
   # At this point, project_dir and project_name are set
-  local worktree_root_name=${GIT_WT_WORK_TREE_NAME:-.worktree}
-
-  local wt_root="$project_dir/$worktree_root_name"
+  local wt_root
+  wt_root=$(git_wt::git::worktree_root_for_project "$project_dir") || return 1
 
   # Check if worktree root already exists
   if [[ -d $wt_root ]]; then
@@ -322,7 +321,10 @@ git_wt::cmd::list() {
       continue
     fi
 
-    name=${wt_path:t}
+    name=$(command git -C "$wt_path" branch --show-current 2>/dev/null)
+    if [[ -z $name ]]; then
+      name=${wt_path:t}
+    fi
     wt_status=$(git_wt::git::worktree_status "$wt_path") || return 1
 
     case $wt_status in
@@ -363,7 +365,10 @@ git_wt::cmd::status() {
   fi
 
   local name wt_status
-  name=${toplevel:t}
+  name=$(command git -C "$toplevel" branch --show-current 2>/dev/null)
+  if [[ -z $name ]]; then
+    name=${toplevel:t}
+  fi
   wt_status=$(git_wt::git::worktree_status "$toplevel") || return 1
 
   print -r -- "  type: feature"

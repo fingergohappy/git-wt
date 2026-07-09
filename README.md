@@ -51,13 +51,13 @@ source ~/.config/zsh/plugins/git-wt/git-wt.plugin.zsh
 
 ### 1) Initialize a worktree root
 
-The plugin uses a dedicated *worktree root* directory (default: `<project>/.worktree`) to store feature worktrees.
+The plugin uses a dedicated *worktree root* directory (default: `../.<project>-wrktrees`) to store feature worktrees.
 
 From a parent directory (recommended):
 
 ```zsh
 cd ~/code
-# create or reuse repo + prompt to create .worktree
+# create or reuse repo + prompt to create ../.my-repo-wrktrees
 # - `git-wt init my-repo` initializes ./my-repo (git init if needed)
 # - `git-wt init https://github.com/org/repo.git` clones if missing
 # - `git-wt init` can also work when you are already inside a repo
@@ -133,7 +133,8 @@ cs <feature>                create and switch
 
 - Feature names must be explicit and valid:
   - disallows: `.`, `..`, `current`
-  - disallows: `/` in feature name
+  - must be valid Git branch names
+  - `/` is allowed; worktree directory names replace it with `-`
 - Destructive operations require explicit arguments (e.g. `remove <feature>`).
 
 ### AI / Editor Integration

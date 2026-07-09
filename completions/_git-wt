@@ -173,10 +173,14 @@ _git-wt() {
     for line in "${lines[@]}"; do
       if [[ $line == worktree\ * ]]; then
         path=${line#worktree }
+        continue
+      fi
+
+      if [[ $line == branch\ refs/heads/* ]]; then
         if [[ $path == $project_root ]]; then
           continue
         fi
-        name=${path:t}
+        name=${line#branch refs/heads/}
         if [[ $name == "." || $name == "current" || $name == ".." ]]; then
           continue
         fi

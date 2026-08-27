@@ -7,6 +7,7 @@ typeset -g __GIT_WT_COMMANDS_LOADED=1
 typeset -g GIT_WT_AI_CMD=${GIT_WT_AI_CMD-}
 typeset -g GIT_WT_EDITOR_CMD=${GIT_WT_EDITOR_CMD-}
 typeset -g GIT_WT_WORK_TREE_NAME=${GIT_WT_WORK_TREE_NAME-}
+typeset -g GIT_WT_LINK=${GIT_WT_LINK-}
 
 # ---- command helpers ----
 
@@ -197,6 +198,86 @@ git_wt::cmd::init() {
   fi
 }
 
+git_wt::cmd::link_extra_paths() {
+  emulate -L zsh
+  setopt localoptions noglob
+
+  local dest_root=$1
+  git_wt::require_arg dest "$dest_root" || return 1
+
+  [[ -n ${GIT_WT_LINK-} ]] || return 0
+
+  local current_toplevel project_root
+  current_toplevel=$(git_wt::git::current_toplevel) || return 1
+  project_root=$(git_wt::git::project_root) || return 1
+
+  dest_root=${dest_root:A}
+  current_toplevel=${current_toplevel:a}
+  project_root=${project_root:a}
+
+  local raw=${GIT_WT_LINK//,/ }
+  local -a entries
+  entries=("${(@z)raw}")
+
+  local entry src dest dest_rel dest_parent dest_abs src_abs
+  for entry in $entries; do
+    [[ -n $entry ]] || continue
+    entry=${entry%/}
+
+    src=
+    dest_rel=
+
+    if [[ $entry == /* ]]; then
+      if [[ -e $entry || -L $entry ]]; then
+        src=$entry
+        src_abs=${entry:a}
+        if [[ $src_abs == "$current_toplevel"/* ]]; then
+          dest_rel=${src_abs#$current_toplevel/}
+        elif [[ $src_abs == "$project_root"/* ]]; then
+          dest_rel=${src_abs#$project_root/}
+        else
+          dest_rel=${src_abs:t}
+        fi
+      else
+        continue
+      fi
+    else
+      entry=${entry#./}
+      if [[ $entry == . || $entry == .. ]]; then
+        git_wt::die "invalid link path: ${entry}"
+      fi
+
+      if [[ -e $current_toplevel/$entry || -L $current_toplevel/$entry ]]; then
+        src=$current_toplevel/$entry
+      elif [[ -e $project_root/$entry || -L $project_root/$entry ]]; then
+        src=$project_root/$entry
+      else
+        continue
+      fi
+      dest_rel=$entry
+    fi
+
+    dest="$dest_root/$dest_rel"
+    dest_abs=${dest:A}
+    if [[ $dest_abs != "$dest_root" && $dest_abs != "$dest_root"/* ]]; then
+      git_wt::die "link path escapes worktree: ${entry}"
+    fi
+
+    if [[ -e $dest || -L $dest ]]; then
+      continue
+    fi
+
+    dest_parent=${dest:h}
+    if [[ ! -d $dest_parent ]]; then
+      command mkdir -p -- "$dest_parent" || return 1
+    fi
+
+    command ln -s -- "${src:a}" "$dest" || {
+      git_wt::die "failed to link ${entry} -> ${dest}"
+    }
+  done
+}
+
 git_wt::cmd::create() {
   emulate -L zsh
   setopt localoptions
@@ -232,25 +313,24 @@ git_wt::cmd::create() {
   fi
 
   if git_wt::git::has_local_branch "$feature"; then
-    command git -C "$project_root" worktree add "$feature_path" "$feature"
-    return $?
+    command git -C "$project_root" worktree add "$feature_path" "$feature" || return $?
+  else
+    local -a remote_branches
+    remote_branches=(${(f)"$(git_wt::git::matching_remote_branches "$feature")"})
+
+    if (( ${#remote_branches[@]} > 1 )); then
+      git_wt::die "matching remote branch is ambiguous for ${feature}: ${(j:, :)remote_branches}"
+    fi
+
+    if (( ${#remote_branches[@]} == 1 )); then
+      command git -C "$project_root" worktree add --track -b "$feature" "$feature_path" "$remote_branches[1]" || return 1
+      print -r -- "Using remote branch: ${remote_branches[1]}"
+    else
+      command git -C "$project_root" worktree add -b "$feature" "$feature_path" "$start_point" || return $?
+    fi
   fi
 
-  local -a remote_branches
-  remote_branches=(${(f)"$(git_wt::git::matching_remote_branches "$feature")"})
-
-  if (( ${#remote_branches[@]} > 1 )); then
-    git_wt::die "matching remote branch is ambiguous for ${feature}: ${(j:, :)remote_branches}"
-    return 1
-  fi
-
-  if (( ${#remote_branches[@]} == 1 )); then
-    command git -C "$project_root" worktree add --track -b "$feature" "$feature_path" "$remote_branches[1]" || return 1
-    print -r -- "Using remote branch: ${remote_branches[1]}"
-    return 0
-  fi
-
-  command git -C "$project_root" worktree add -b "$feature" "$feature_path" "$start_point"
+  git_wt::cmd::link_extra_paths "$feature_path"
 }
 
 git_wt::cmd::switch() {

@@ -83,6 +83,18 @@ the local branch from that remote branch, configures tracking, and prints which 
 If neither exists, it creates a new local branch from the current `HEAD`, so creating from inside an
 existing worktree branches from that worktree.
 
+`git worktree add` only checks out tracked files. To also expose gitignored or untracked paths in the
+new worktree (and even paths that exist only in the project root, or outside the current worktree),
+set `GIT_WT_LINK` to a space- or comma-separated list:
+
+```zsh
+export GIT_WT_LINK=".env,.claude,.vscode/settings.json"
+```
+
+After a successful `git-wt create`, each listed path is symlinked into the new worktree if the source
+exists. Lookup order is: current worktree, then project root. Absolute paths outside the tree are
+linked in by basename. Missing sources are skipped; existing destination paths are not overwritten.
+
 ### 3) Switch between worktrees
 
 ```zsh

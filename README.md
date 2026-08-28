@@ -85,15 +85,17 @@ existing worktree branches from that worktree.
 
 `git worktree add` only checks out tracked files. To also expose gitignored or untracked paths in the
 new worktree (and even paths that exist only in the project root, or outside the current worktree),
-set `GIT_WT_LINK` to a space- or comma-separated list:
+set `GIT_WT_LINK` to a space- or comma-separated list of paths or zsh globs (`*`, `?`, `[]`, `**/`):
 
 ```zsh
-export GIT_WT_LINK=".env,.claude,.vscode/settings.json"
+export GIT_WT_LINK=".env,.env.*,.claude,.vscode/*"
 ```
 
 After a successful `git-wt create`, each listed path is symlinked into the new worktree if the source
-exists. Lookup order is: current worktree, then project root. Absolute paths outside the tree are
-linked in by basename. Missing sources are skipped; existing destination paths are not overwritten.
+exists. Globs may match multiple files or directories. Lookup order is: current worktree, then project
+root; if both match the same relative path, the current worktree wins. Absolute paths outside the tree
+are linked in by basename. Missing sources and unmatched globs are skipped; existing destination paths
+are not overwritten.
 
 ### 3) Switch between worktrees
 

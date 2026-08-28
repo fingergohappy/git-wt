@@ -148,10 +148,98 @@ test_skip_missing_and_do_not_overwrite() {
   [[ -f $wt/file.txt ]] || fail "tracked file.txt should remain a regular file"
 }
 
+test_link_glob_multiple_files() {
+  local repo
+  repo=$(setup_repo "$tmp_dir/link-glob-files/repo")
+  print -r -- "SECRET=1" > "$repo/.env"
+  print -r -- "SECRET=2" > "$repo/.env.local"
+
+  builtin cd -- "$repo"
+  local GIT_WT_LINK=".env*"
+
+  git_wt::cmd::create feature-one >/dev/null 2>&1 \
+    || fail "create with GIT_WT_LINK=.env* failed"
+
+  local wt="${repo:h}/.repo-wrktrees/feature-one"
+  assert_symlink "$wt/.env" "$repo/.env" "glob matched .env"
+  assert_symlink "$wt/.env.local" "$repo/.env.local" "glob matched .env.local"
+}
+
+test_link_glob_nested_and_recursive() {
+  local repo
+  repo=$(setup_repo "$tmp_dir/link-glob-nested/repo")
+  command mkdir -p -- "$repo/.vscode" "$repo/secrets/a"
+  print -r -- '{"tabSize":2}' > "$repo/.vscode/settings.json"
+  print -r -- '{"keys":[]}' > "$repo/.vscode/keybindings.json"
+  print -r -- "hidden" > "$repo/secrets/a/.secret"
+  print -r -- "secrets/" >> "$repo/.gitignore"
+
+  builtin cd -- "$repo"
+  local GIT_WT_LINK=".vscode/*,**/.secret"
+
+  git_wt::cmd::create feature-one >/dev/null 2>&1 \
+    || fail "create with nested and recursive GIT_WT_LINK globs failed"
+
+  local wt="${repo:h}/.repo-wrktrees/feature-one"
+  assert_symlink "$wt/.vscode/settings.json" "$repo/.vscode/settings.json" "nested glob settings.json"
+  assert_symlink "$wt/.vscode/keybindings.json" "$repo/.vscode/keybindings.json" "nested glob keybindings.json"
+  assert_symlink "$wt/secrets/a/.secret" "$repo/secrets/a/.secret" "recursive glob .secret"
+}
+
+test_link_glob_prefers_current_then_project_root() {
+  local repo
+  repo=$(setup_repo "$tmp_dir/link-glob-fallback/repo")
+  print -r -- "ROOT=1" > "$repo/.env"
+  print -r -- "ROOT_LOCAL=1" > "$repo/.env.local"
+
+  builtin cd -- "$repo"
+  git_wt::cmd::create feature-one >/dev/null 2>&1 \
+    || fail "create feature-one failed"
+
+  local feature_one="${repo:h}/.repo-wrktrees/feature-one"
+  print -r -- "WT_LOCAL=1" > "$feature_one/.env.local"
+
+  builtin cd -- "$feature_one"
+  local GIT_WT_LINK=".env*"
+  git_wt::cmd::create feature-two >/dev/null 2>&1 \
+    || fail "create feature-two from worktree with glob failed"
+
+  local wt="${repo:h}/.repo-wrktrees/feature-two"
+  assert_symlink "$wt/.env" "$repo/.env" "glob fallback .env from project root"
+  assert_symlink "$wt/.env.local" "$feature_one/.env.local" "glob prefers current worktree .env.local"
+}
+
+test_link_glob_absolute_and_unmatched() {
+  local repo
+  repo=$(setup_repo "$tmp_dir/link-glob-abs/repo")
+
+  local outside_dir="$tmp_dir/link-glob-abs/shared"
+  command mkdir -p -- "$outside_dir"
+  print -r -- "a" > "$outside_dir/a.txt"
+  print -r -- "b" > "$outside_dir/b.txt"
+  print -r -- "nope" > "$outside_dir/c.md"
+
+  builtin cd -- "$repo"
+  local GIT_WT_LINK="$outside_dir/*.txt,no-such*"
+
+  git_wt::cmd::create feature-one >/dev/null 2>&1 \
+    || fail "create with absolute glob should skip unmatched patterns"
+
+  local wt="${repo:h}/.repo-wrktrees/feature-one"
+  assert_symlink "$wt/a.txt" "$outside_dir/a.txt" "absolute glob a.txt"
+  assert_symlink "$wt/b.txt" "$outside_dir/b.txt" "absolute glob b.txt"
+  [[ ! -e $wt/c.md ]] || fail "absolute glob should not match c.md"
+  [[ ! -L $wt/file.txt ]] || fail "unmatched glob should not replace tracked file.txt"
+}
+
 test_link_ignored_file_from_project_root
 test_link_from_project_root_when_missing_in_current_worktree
 test_link_directory
 test_link_nested_and_absolute_outside_paths
 test_skip_missing_and_do_not_overwrite
+test_link_glob_multiple_files
+test_link_glob_nested_and_recursive
+test_link_glob_prefers_current_then_project_root
+test_link_glob_absolute_and_unmatched
 
 print -r -- "ok link-extra-paths"

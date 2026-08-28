@@ -198,6 +198,77 @@ git_wt::cmd::init() {
   fi
 }
 
+git_wt::cmd::link_resolved_path() {
+  emulate -L zsh
+  setopt localoptions noglob
+
+  local dest_root=$1 src=$2 dest_rel=$3 entry=$4
+  local dest dest_abs dest_parent
+
+  [[ -n $dest_rel ]] || return 0
+
+  dest="$dest_root/$dest_rel"
+  dest_abs=${dest:A}
+  if [[ $dest_abs != "$dest_root" && $dest_abs != "$dest_root"/* ]]; then
+    git_wt::die "link path escapes worktree: ${entry}"
+  fi
+
+  if [[ -e $dest || -L $dest ]]; then
+    return 0
+  fi
+
+  dest_parent=${dest:h}
+  if [[ ! -d $dest_parent ]]; then
+    command mkdir -p -- "$dest_parent" || return 1
+  fi
+
+  command ln -s -- "${src:a}" "$dest" || {
+    git_wt::die "failed to link ${entry} -> ${dest}"
+  }
+}
+
+git_wt::cmd::link_glob_under_root() {
+  emulate -L zsh
+  setopt nullglob
+
+  local dest_root=$1 root=$2 entry=$3
+  local -a matches
+  local match src_abs dest_rel pattern
+
+  pattern="${(b)root}/$entry"
+  matches=( ${~pattern} )
+  for match in "${matches[@]}"; do
+    src_abs=${match:a}
+    if [[ $src_abs != "$root"/* ]]; then
+      continue
+    fi
+    dest_rel=${src_abs#$root/}
+    git_wt::cmd::link_resolved_path "$dest_root" "$match" "$dest_rel" "$entry" || return 1
+  done
+}
+
+git_wt::cmd::link_glob_absolute() {
+  emulate -L zsh
+  setopt nullglob
+
+  local dest_root=$1 entry=$2 current_toplevel=$3 project_root=$4
+  local -a matches
+  local match src_abs dest_rel
+
+  matches=( ${~entry} )
+  for match in "${matches[@]}"; do
+    src_abs=${match:a}
+    if [[ $src_abs == "$current_toplevel"/* ]]; then
+      dest_rel=${src_abs#$current_toplevel/}
+    elif [[ $src_abs == "$project_root"/* ]]; then
+      dest_rel=${src_abs#$project_root/}
+    else
+      dest_rel=${src_abs:t}
+    fi
+    git_wt::cmd::link_resolved_path "$dest_root" "$match" "$dest_rel" "$entry" || return 1
+  done
+}
+
 git_wt::cmd::link_extra_paths() {
   emulate -L zsh
   setopt localoptions noglob
@@ -219,9 +290,26 @@ git_wt::cmd::link_extra_paths() {
   local -a entries
   entries=("${(@z)raw}")
 
-  local entry src dest dest_rel dest_parent dest_abs src_abs
+  local entry src dest_rel src_abs
   for entry in $entries; do
     [[ -n $entry ]] || continue
+
+    if [[ $entry == *[\*\?\[]* ]]; then
+      if [[ $entry == /* ]]; then
+        git_wt::cmd::link_glob_absolute "$dest_root" "$entry" "$current_toplevel" "$project_root" || return 1
+      else
+        entry=${entry#./}
+        if [[ $entry == . || $entry == .. ]]; then
+          git_wt::die "invalid link path: ${entry}"
+        fi
+        git_wt::cmd::link_glob_under_root "$dest_root" "$current_toplevel" "$entry" || return 1
+        if [[ $project_root != "$current_toplevel" ]]; then
+          git_wt::cmd::link_glob_under_root "$dest_root" "$project_root" "$entry" || return 1
+        fi
+      fi
+      continue
+    fi
+
     entry=${entry%/}
 
     src=
@@ -257,24 +345,7 @@ git_wt::cmd::link_extra_paths() {
       dest_rel=$entry
     fi
 
-    dest="$dest_root/$dest_rel"
-    dest_abs=${dest:A}
-    if [[ $dest_abs != "$dest_root" && $dest_abs != "$dest_root"/* ]]; then
-      git_wt::die "link path escapes worktree: ${entry}"
-    fi
-
-    if [[ -e $dest || -L $dest ]]; then
-      continue
-    fi
-
-    dest_parent=${dest:h}
-    if [[ ! -d $dest_parent ]]; then
-      command mkdir -p -- "$dest_parent" || return 1
-    fi
-
-    command ln -s -- "${src:a}" "$dest" || {
-      git_wt::die "failed to link ${entry} -> ${dest}"
-    }
+    git_wt::cmd::link_resolved_path "$dest_root" "$src" "$dest_rel" "$entry" || return 1
   done
 }
 
